@@ -1,12 +1,8 @@
-import json
-import os
-import subprocess
-from os.path import join
 from typing import List
 
-from distro import distro
-from prefect import flow, get_run_logger, unmapped, task
-from prefect.task_runners import SequentialTaskRunner
+from prefect import flow
+from prefect import get_run_logger
+from prefect import unmapped
 from prefect_dask import DaskTaskRunner
 import koopa
 
@@ -14,55 +10,13 @@ import tasks_postprocess
 import tasks_preprocess
 import tasks_segment
 import tasks_spots
-
-
-# cluster_class="dask_jobqueue.SLURMCluster",
-# cluster_kwargs={
-#     "n_workers": 1,
-#     "account": "ppi",
-#     "queue": "cpu_short",
-#     "cores": 4,
-#     "memory": "16GB",
-#     "walltime": "00:30:00",
-#     "job_extra_directives": ["--ntasks=1"],
-# },
-# adapt_kwargs={"minimum": 1, "maximum": 1},
-
-@task()
-def save_conda_env(output_dir: str):
-    """
-    Save conda environment to conda-environment.yaml.
-    :param output_dir:
-    :param logger:
-    :return:
-    """
-    logger = get_run_logger()
-    conda_prefix = os.environ["CONDA_PREFIX"]
-    outpath = join(output_dir, "conda-environment.yaml")
-    cmd = f"conda list -p {conda_prefix} > {outpath}"
-    result = subprocess.run(cmd, shell=True, check=True)
-    result.check_returncode()
-
-    logger.info(f"Saved conda-environment to {outpath}.")
-
-@task()
-def save_system_information(output_dir: str):
-    """
-    Dump system information into system-info.json.
-    :param output_dir:
-    :param logger:
-    :return:
-    """
-    logger = get_run_logger()
-    outpath = join(output_dir, "system-info.json")
-    info = distro.info(pretty=True, best=True)
-    with open(outpath, "w") as f:
-        json.dump(info, f, indent=4)
-
-    logger.info(f"Saved system information to {outpath}.")
+import tasks_util
 
 
 def file_independent(config: dict):
+    tasks_util.save_conda_env.submit(path_out=config["output_path"])
+    tasks_util.save_system_information.submit(path_out=config["output_path"])
+
     if not config["alignment_enabled"]:
         return None
 
@@ -154,9 +108,11 @@ def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
     tasks_postprocess.merge_all.submit(config["output_path"], dfs, wait_for=dfs)
 
 
-@flow(name="Koopa",
-      version=koopa.__version__,
-      task_runner=DaskTaskRunner(cluster_class="dask_jobqueue.SLURMCluster",
+@flow(
+    name="Koopa",
+    version=koopa.__version__,
+    task_runner=DaskTaskRunner(
+        cluster_class="dask_jobqueue.SLURMCluster",
         cluster_kwargs={
             "account": "dlthings",
             "queue": "cpu_short",
@@ -176,20 +132,25 @@ def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
                 "15m",
             ],
             "job_script_prologue": [
-                "conda run -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable python /tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"
+                """conda run
+                    -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable
+                    python /tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py
+                    --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"""
             ],
         },
         adapt_kwargs={
             "minimum": 1,
             "maximum": 8,
-        },))
+        },
+    ),
+)
 def workflow(config_path: str, force: bool = False):
     """Core koopa workflow.
 
     Arguments:
         * config_path: Path to koopa configuration file.
             Path must be passed linux-compatible (e.g. /tungstenfs/scratch/...).
-            The default configuration file can be viewed and downloaded [here](https://github.com/BBQuercus/koopa/blob/main/koopa-prefect/koopa.cfg).
+            The default configuration file can be viewed and downloaded [here](https://raw.githubusercontent.com/BBQuercus/koopa-flows/main/koopa.cfg).
 
         * force: If selected, the entire workflow will be re-run.
             Otherwise, only the not yet executed components (missing files) are run.
@@ -201,7 +162,7 @@ def workflow(config_path: str, force: bool = False):
     koopa.util.configure_gpu(False)
 
     # File independent tasks
-    config = tasks_preprocess.configuration(config_path, force)
+    config = tasks_util.configuration(config_path, force)
     file_independent(config)
 
     # Workflow

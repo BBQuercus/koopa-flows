@@ -1,6 +1,7 @@
 import os
 
-from prefect import task, get_run_logger
+from prefect import get_run_logger
+from prefect import task
 import deepblink as pink
 import koopa
 

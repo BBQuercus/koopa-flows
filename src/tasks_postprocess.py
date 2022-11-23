@@ -1,7 +1,8 @@
 from typing import List
 import os
 
-from prefect import task, get_run_logger
+from prefect import get_run_logger
+from prefect import task
 import koopa
 import pandas as pd
 

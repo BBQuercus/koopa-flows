@@ -1,27 +1,9 @@
 import os
 
-from prefect import task, get_run_logger
+from prefect import get_run_logger
+from prefect import task
 
 import koopa
-
-
-@task(name="Configuration")
-def configuration(path: os.PathLike, force: bool):
-    logger = get_run_logger()
-
-    # Parse configuration
-    cfg = koopa.io.load_config(path)
-    koopa.config.validate_config(cfg)
-    logger.info("Configuration file validated.")
-    config = koopa.config.flatten_config(cfg)
-
-    # Save config
-    cfg = koopa.config.add_versioning(cfg)
-    fname_config = os.path.join(config["output_path"], "koopa.cfg")
-    koopa.io.save_config(fname_config, cfg)
-
-    config["force"] = force
-    return config
 
 
 @task(name="Align")
