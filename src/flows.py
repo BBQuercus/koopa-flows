@@ -1,6 +1,11 @@
+import json
+import os
+import subprocess
+from os.path import join
 from typing import List
 
-from prefect import flow, get_run_logger, unmapped
+from distro import distro
+from prefect import flow, get_run_logger, unmapped, task
 from prefect.task_runners import SequentialTaskRunner
 from prefect_dask import DaskTaskRunner
 import koopa
@@ -22,6 +27,39 @@ import tasks_spots
 #     "job_extra_directives": ["--ntasks=1"],
 # },
 # adapt_kwargs={"minimum": 1, "maximum": 1},
+
+@task()
+def save_conda_env(output_dir: str):
+    """
+    Save conda environment to conda-environment.yaml.
+    :param output_dir:
+    :param logger:
+    :return:
+    """
+    logger = get_run_logger()
+    conda_prefix = os.environ["CONDA_PREFIX"]
+    outpath = join(output_dir, "conda-environment.yaml")
+    cmd = f"conda list -p {conda_prefix} > {outpath}"
+    result = subprocess.run(cmd, shell=True, check=True)
+    result.check_returncode()
+
+    logger.info(f"Saved conda-environment to {outpath}.")
+
+@task()
+def save_system_information(output_dir: str):
+    """
+    Dump system information into system-info.json.
+    :param output_dir:
+    :param logger:
+    :return:
+    """
+    logger = get_run_logger()
+    outpath = join(output_dir, "system-info.json")
+    info = distro.info(pretty=True, best=True)
+    with open(outpath, "w") as f:
+        json.dump(info, f, indent=4)
+
+    logger.info(f"Saved system information to {outpath}.")
 
 
 def file_independent(config: dict):
