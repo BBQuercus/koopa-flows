@@ -116,7 +116,35 @@ def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
     tasks_postprocess.merge_all.submit(config["output_path"], dfs, wait_for=dfs)
 
 
-@flow(name="Koopa", version=koopa.__version__, task_runner=DaskTaskRunner())
+@flow(name="Koopa",
+      version=koopa.__version__,
+      task_runner=DaskTaskRunner(cluster_class="dask_jobqueue.SLURMCluster",
+        cluster_kwargs={
+            "account": "dlthings",
+            "queue": "cpu_short",
+            "cores": 4,
+            "processes": 1,
+            "memory": "16 GB",
+            "walltime": "04:00:00",
+            "job_extra_directives": [
+                "--gpus-per-node=1",
+                "--ntasks=1",
+                "--output=/tungstenfs/scratch/gmicro_share/_prefect/slurm/output/%j.out",
+            ],
+            "worker_extra_args": [
+                "--lifetime",
+                "240m",
+                "--lifetime-stagger",
+                "15m",
+            ],
+            "job_script_prologue": [
+                "conda run -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable python /tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"
+            ],
+        },
+        adapt_kwargs={
+            "minimum": 1,
+            "maximum": 8,
+        },))
 def workflow(config_path: str, force: bool = False):
     """Core koopa workflow.
 
