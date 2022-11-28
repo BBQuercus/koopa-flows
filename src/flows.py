@@ -121,6 +121,84 @@ def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
             "cores": 4,
             "processes": 1,
             "memory": "16 GB",
+            "walltime": "02:00:00",
+            "job_extra_directives": [
+                "--ntasks=1",
+                "--output=/tungstenfs/scratch/gmicro_share/_prefect/slurm/output/%j.out",
+            ],
+            "worker_extra_args": [
+                "--lifetime",
+                "240m",
+                "--lifetime-stagger",
+                "15m",
+            ],
+            "job_script_prologue": [
+                """conda run
+                    -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable
+                    python /tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py
+                    --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"""
+            ],
+        },
+        adapt_kwargs={
+            "minimum": 1,
+            "maximum": 16,
+        },
+    ),
+)
+def workflow(config_path: str, force: bool = False):
+    """Core koopa workflow.
+
+    Arguments:
+        * config_path: Path to koopa configuration file.
+            Path must be passed linux-compatible (e.g. /tungstenfs/scratch/...).
+            The default configuration file can be viewed and downloaded [here](https://raw.githubusercontent.com/BBQuercus/koopa-flows/main/koopa.cfg).
+
+        * force: If selected, the entire workflow will be re-run.
+            Otherwise, only the not yet executed components (missing files) are run.
+
+    All documentation can be found on the koopa wiki (https://github.com/BBQuercus/koopa/wiki).
+    """
+    logger = get_run_logger()
+    logger.info("Started running Koopa!")
+    koopa.util.configure_gpu(False)
+
+    # File independent tasks
+    config = tasks_util.configuration(config_path, force)
+    file_independent(config)
+
+    # Workflow
+    fnames = koopa.util.get_file_list(config["input_path"], config["file_ext"])
+    kwargs = dict(path=unmapped(config["output_path"]), config=unmapped(config))
+
+    # Preprocess
+    preprocess = tasks_preprocess.preprocess.map(fnames, **kwargs)
+
+    # Segmentation
+    seg_cells = cell_segmentation(fnames, config, kwargs, dependencies=preprocess)
+    seg_other = other_segmentation(fnames, config, kwargs, dependencies=preprocess)
+
+    # Spots
+    spots = spot_detection(fnames, config, kwargs, dependencies=preprocess)
+    coloc = colocalization(fnames, config, kwargs, dependencies=spots)
+
+    # Merge
+    merging(
+        fnames, config, kwargs, dependencies=[*spots, *coloc, *seg_cells, *seg_other]
+    )
+    logger.info("Koopa finished analyzing everything!")
+
+
+@flow(
+    name="Koopa-GPU",
+    version=koopa.__version__,
+    task_runner=DaskTaskRunner(
+        cluster_class="dask_jobqueue.SLURMCluster",
+        cluster_kwargs={
+            "account": "dlthings",
+            "queue": "gpu_short",
+            "cores": 4,
+            "processes": 1,
+            "memory": "16 GB",
             "walltime": "04:00:00",
             "job_extra_directives": [
                 "--gpus-per-node=1",
@@ -142,26 +220,15 @@ def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
         },
         adapt_kwargs={
             "minimum": 1,
-            "maximum": 8,
+            "maximum": 4,
         },
     ),
 )
-def workflow(config_path: str, force: bool = False):
-    """Core koopa workflow.
-
-    Arguments:
-        * config_path: Path to koopa configuration file.
-            Path must be passed linux-compatible (e.g. /tungstenfs/scratch/...).
-            The default configuration file can be viewed and downloaded [here](https://raw.githubusercontent.com/BBQuercus/koopa-flows/main/koopa.cfg).
-
-        * force: If selected, the entire workflow will be re-run.
-            Otherwise, only the not yet executed components (missing files) are run.
-
-    All documentation can be found on the koopa wiki (https://github.com/BBQuercus/koopa/wiki).
-    """
+def gpu_workflow(config_path: str, force: bool = False):
+    """GPU specific workflow."""
     logger = get_run_logger()
     logger.info("Started running Koopa!")
-    koopa.util.configure_gpu(False)
+    koopa.util.configure_gpu(True)
 
     # File independent tasks
     config = tasks_util.configuration(config_path, force)
