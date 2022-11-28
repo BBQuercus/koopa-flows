@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import os
 
 from prefect import get_run_logger
@@ -28,16 +28,17 @@ def merge_single(fname: str, path: os.PathLike, config: dict):
     df = koopa.util.get_final_spot_file(fname, path, config)
 
     # Run
-    df = koopa.postprocess.add_segmentation_data(df, segmaps, config)
+    df, df_cell = koopa.postprocess.get_segmentation_data(df, segmaps, config)
     logger.debug(f"Merged files for {fname}")
 
     # Return
-    return df
+    return df, df_cell
 
 
 @task(name="Merge Output (All)")
-def merge_all(path: os.PathLike, dfs: List[pd.DataFrame]):
+def merge_all(path: os.PathLike, dfs: List[Tuple[pd.DataFrame]]):
     """Merge all analysis files into a single summary file."""
-    df = pd.concat(dfs, ignore_index=True)
-    fname_out = os.path.join(path, "summary.csv")
-    koopa.io.save_csv(fname_out, df)
+    for idx, fname in enumerate(("summary.csv", "summary_cells.csv")):
+        df = pd.concat([i[idx] for i in dfs], ignore_index=True)
+        fname_out = os.path.join(path, fname)
+        koopa.io.save_csv(fname_out, df)

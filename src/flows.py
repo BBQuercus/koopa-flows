@@ -104,8 +104,10 @@ def colocalization(fnames: List[str], config: dict, kwargs: dict, dependencies: 
 
 
 def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
-    dfs = tasks_postprocess.merge_single.map(fnames, **kwargs, wait_for=dependencies)
-    tasks_postprocess.merge_all.submit(config["output_path"], dfs, wait_for=dfs)
+    singles = tasks_postprocess.merge_single.map(
+        fnames, **kwargs, wait_for=dependencies
+    )
+    tasks_postprocess.merge_all.submit(config["output_path"], singles, wait_for=singles)
 
 
 @flow(
