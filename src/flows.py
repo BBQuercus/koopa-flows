@@ -1,4 +1,5 @@
 from typing import List
+import subprocess
 
 from prefect import flow
 from prefect import get_run_logger
@@ -91,7 +92,7 @@ def colocalization(fnames: List[str], config: dict, kwargs: dict, dependencies: 
             **kwargs,
             index_reference=reference,
             index_transform=transform,
-            wait_for=dependencies
+            wait_for=dependencies,
         )
 
     return tasks_spots.colocalize_frame.map(
@@ -99,7 +100,7 @@ def colocalization(fnames: List[str], config: dict, kwargs: dict, dependencies: 
         **kwargs,
         index_reference=reference,
         index_transform=transform,
-        wait_for=dependencies
+        wait_for=dependencies,
     )
 
 
@@ -108,6 +109,28 @@ def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
         fnames, **kwargs, wait_for=dependencies
     )
     tasks_postprocess.merge_all.submit(config["output_path"], singles, wait_for=singles)
+
+
+@flow(name="Update Koopa")
+def update_koopa(reinstall: bool = False):
+    logger = get_run_logger()
+    logger.info("Starting koopa's update")
+    subprocess.check_call(["pip", "install", "koopa"])
+
+    def __get_version():
+        data = subprocess.check_output(["pip", "show", "koopa"]).decode()
+        if "WARNING" in data:
+            return "0.0.0/Not-installed"
+        return data.split("\n")[1].split(" ")[1]
+
+    arguments = ["--upgrade", "--no-cache-dir"]
+    if reinstall:
+        arguments.extend(["--force", "--ignore-installed"])
+
+    pre = __get_version()
+    subprocess.check_call(["python", "-m", "pip", "install", *arguments, "koopa"])
+    post = __get_version()
+    logger.info(f"Upgraded koopa from Version {pre} -> {post}")
 
 
 @flow(
