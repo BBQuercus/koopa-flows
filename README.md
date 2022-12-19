@@ -1,9 +1,14 @@
 # Koopa-flows
 
-Workflow logic to integrate core python code from [koopa](https://github.com/bbquercus/koopa) and wrap it with a small CLI and prefect web interface.
+Workflow logic to integrate core python code from [koopa](https://github.com/fmi-basel/gchao-koopa) and wrap it with a small CLI and prefect web interface.
 
 
 ## Initial deployment
+Install dependencies:
+```
+pip install koopa prefect prefect-cloud distro dask-jobqueue
+```
+
 Build deployment(s):
 ```
 prefect deployment build --tag "VERSION" ./src/flows.py:workflow --name "koopa"
