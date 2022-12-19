@@ -1,4 +1,5 @@
 from typing import List
+import itertools
 import subprocess
 
 from prefect import flow
@@ -29,20 +30,33 @@ def file_independent(config: dict):
 def cell_segmentation(
     fnames: List[str], config: dict, kwargs: dict, dependencies: list
 ):
-    if not config["brains_enabled"]:
-        if config["selection"] == "both":
-            return tasks_segment.segment_cells_both.map(
-                fnames, **kwargs, wait_for=dependencies
-            )
-        return tasks_segment.segment_cells_single.map(
-            fnames, **kwargs, wait_for=dependencies
-        )
+    segmentation = []
+    for fname in fnames:
+        if not config["brains_enabled"]:
+            if config["selection"] == "both":
+                segmentation.append(
+                    tasks_segment.segment_cells_both.submit(
+                        fname, **kwargs, wait_for=dependencies
+                    )
+                )
+            else:
+                segmentation.append(
+                    tasks_segment.segment_cells_single.submit(
+                        fname, **kwargs, wait_for=dependencies
+                    )
+                )
+            continue
 
-    brain_1 = tasks_segment.segment_cells_predict.map(
-        fnames, **kwargs, wait_for=dependencies
-    )
-    brain_2 = tasks_segment.segment_cells_merge.map(fnames, **kwargs, wait_for=brain_1)
-    return tasks_segment.dilate_cells.map(fnames, **kwargs, wait_for=brain_2)
+        brain_1 = tasks_segment.segment_cells_predict.submit(
+            fname, **kwargs, wait_for=dependencies
+        )
+        brain_2 = tasks_segment.segment_cells_merge.submit(
+            fname, **kwargs, wait_for=[brain_1]
+        )
+        segmentation.append(
+            tasks_segment.dilate_cells.submit(fname, **kwargs, wait_for=[brain_2])
+        )
+    return segmentation
 
 
 def other_segmentation(
@@ -52,62 +66,73 @@ def other_segmentation(
         return []
 
     channels = range(len(config["sego_channels"]))
-    fnames_map = [f for f in fnames for _ in channels]
-    index_map = [c for _ in fnames for c in channels]
-
-    seg_other = tasks_segment.segment_other.map(
-        fnames_map, **kwargs, index_list=index_map, wait_for=dependencies
-    )
-    return seg_other
+    return [
+        tasks_segment.segment_other.submit(
+            fname, **kwargs, index_list=index, wait_for=dependencies
+        )
+        for fname, index in itertools.product(fnames, channels)
+    ]
 
 
 def spot_detection(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
+    # Detection
     channels = range(len(config["detect_channels"]))
-    fnames_map = [f for f in fnames for _ in channels]
-    index_map = [c for _ in fnames for c in channels]
-    spots = tasks_spots.detect.map(
-        fnames_map, **kwargs, index_list=index_map, wait_for=dependencies
-    )
-
-    if config["do_3d"] or config["do_timeseries"]:
-        fnames_map = [f for f in fnames for _ in config["detect_channels"]]
-        index_map = [c for _ in fnames for c in config["detect_channels"]]
-        spots = tasks_spots.track.map(
-            fnames_map, **kwargs, index_channel=index_map, wait_for=spots
+    detect = []
+    for fname, index in itertools.product(fnames, channels):
+        detect.append(
+            tasks_spots.detect.submit(
+                fname, **kwargs, index_list=index, wait_for=dependencies
+            )
         )
-    return spots
+    if not config["do_3d"] and not config["do_timeseries"]:
+        return detect
+
+    # Tracking
+    track = []
+    for fname, index in itertools.product(fnames, config["detect_channels"]):
+        track.append(
+            tasks_spots.track.submit(
+                fname, **kwargs, index_channel=index, wait_for=detect
+            )
+        )
+    return track
 
 
 def colocalization(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
     if not config["coloc_enabled"]:
         return []
 
-    reference = [i[0] for _ in fnames for i in config["coloc_channels"]]
-    transform = [i[1] for _ in fnames for i in config["coloc_channels"]]
-    fnames_map = [f for f in fnames for _ in config["coloc_channels"]]
-
-    if config["do_timeseries"]:
-        return tasks_spots.colocalize_track.map(
-            fnames_map,
-            **kwargs,
-            index_reference=reference,
-            index_transform=transform,
-            wait_for=dependencies,
-        )
-
-    return tasks_spots.colocalize_frame.map(
-        fnames_map,
-        **kwargs,
-        index_reference=reference,
-        index_transform=transform,
-        wait_for=dependencies,
-    )
+    colocalization = []
+    for fname, (reference, transform) in itertools.product(
+        fnames, config["coloc_channels"]
+    ):
+        if config["do_timeseries"]:
+            colocalization.append(
+                tasks_spots.colocalize_track.submit(
+                    fname,
+                    **kwargs,
+                    index_reference=reference,
+                    index_transform=transform,
+                    wait_for=dependencies,
+                )
+            )
+        else:
+            colocalization.append(
+                tasks_spots.colocalize_frame.submit(
+                    fname,
+                    **kwargs,
+                    index_reference=reference,
+                    index_transform=transform,
+                    wait_for=dependencies,
+                )
+            )
 
 
 def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
-    singles = tasks_postprocess.merge_single.map(
-        fnames, **kwargs, wait_for=dependencies
-    )
+    singles = [
+        tasks_postprocess.merge_single.submit(fname, **kwargs, wait_for=dependencies)
+        for fname in fnames
+    ]
     tasks_postprocess.merge_all.submit(config["output_path"], singles, wait_for=singles)
 
 
@@ -194,7 +219,9 @@ def workflow(config_path: str, force: bool = False):
     kwargs = dict(path=unmapped(config["output_path"]), config=unmapped(config))
 
     # Preprocess
-    preprocess = tasks_preprocess.preprocess.map(fnames, **kwargs)
+    preprocess = [
+        tasks_preprocess.preprocess.submit(fname, **kwargs) for fname in fnames
+    ]
 
     # Segmentation
     seg_cells = cell_segmentation(fnames, config, kwargs, dependencies=preprocess)
@@ -262,7 +289,9 @@ def gpu_workflow(config_path: str, force: bool = False):
     kwargs = dict(path=unmapped(config["output_path"]), config=unmapped(config))
 
     # Preprocess
-    preprocess = tasks_preprocess.preprocess.map(fnames, **kwargs)
+    preprocess = [
+        tasks_preprocess.preprocess.submit(fname, **kwargs) for fname in fnames
+    ]
 
     # Segmentation
     seg_cells = cell_segmentation(fnames, config, kwargs, dependencies=preprocess)
