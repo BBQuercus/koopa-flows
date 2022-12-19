@@ -4,7 +4,6 @@ import subprocess
 
 from prefect import flow
 from prefect import get_run_logger
-from prefect import unmapped
 from prefect_dask import DaskTaskRunner
 import koopa
 
@@ -216,7 +215,7 @@ def workflow(config_path: str, force: bool = False):
 
     # Workflow
     fnames = koopa.util.get_file_list(config["input_path"], config["file_ext"])
-    kwargs = dict(path=unmapped(config["output_path"]), config=unmapped(config))
+    kwargs = dict(path=config["output_path"], config=config)
 
     # Preprocess
     preprocess = [
@@ -286,7 +285,7 @@ def gpu_workflow(config_path: str, force: bool = False):
 
     # Workflow
     fnames = koopa.util.get_file_list(config["input_path"], config["file_ext"])
-    kwargs = dict(path=unmapped(config["output_path"]), config=unmapped(config))
+    kwargs = dict(path=config["output_path"], config=config)
 
     # Preprocess
     preprocess = [
