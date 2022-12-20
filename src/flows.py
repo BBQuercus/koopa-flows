@@ -125,6 +125,7 @@ def colocalization(fnames: List[str], config: dict, kwargs: dict, dependencies: 
                     wait_for=dependencies,
                 )
             )
+    return colocalization
 
 
 def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
