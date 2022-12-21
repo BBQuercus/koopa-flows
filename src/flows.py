@@ -1,6 +1,7 @@
 from typing import List
 import itertools
 import logging
+import os
 import subprocess
 
 from prefect import flow
@@ -223,7 +224,11 @@ def core_workflow(config_path: str, force: bool, logger: logging.Logger):
         },
     ),
 )
-def workflow(config_path: str, force: bool = False):
+def workflow(
+    config_path: str,
+    force: bool = False,
+    root_dir: str = "/tungstenfs/scratch/gmicro_prefect/gchao",
+):
     """Core koopa workflow.
 
     Arguments:
@@ -240,6 +245,7 @@ def workflow(config_path: str, force: bool = False):
     logger = get_run_logger()
     logger.info("Started running Koopa!")
     koopa.util.configure_gpu(False)
+    os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
     core_workflow(config_path=config_path, force=force, logger=logger)
 
 
@@ -279,9 +285,14 @@ def workflow(config_path: str, force: bool = False):
         },
     ),
 )
-def gpu_workflow(config_path: str, force: bool = False):
+def gpu_workflow(
+    config_path: str,
+    force: bool = False,
+    root_dir: str = "/tungstenfs/scratch/gmicro_prefect/gchao",
+):
     """GPU specific workflow."""
     logger = get_run_logger()
     logger.info("Started running Koopa-GPU!")
     koopa.util.configure_gpu(True)
+    os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
     core_workflow(config_path=config_path, force=force, logger=logger)
