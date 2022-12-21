@@ -8,6 +8,7 @@ from prefect import flow
 from prefect import get_run_logger
 from prefect_dask import DaskTaskRunner
 import koopa
+import torch
 
 import tasks_postprocess
 import tasks_preprocess
@@ -293,5 +294,6 @@ def gpu_workflow(
     logger = get_run_logger()
     logger.info("Started running Koopa-GPU!")
     koopa.util.configure_gpu(0, memory_limit=32_768)
+    torch.cuda.set_per_process_memory_fraction(0.5, device=0)
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
     core_workflow(config_path=config_path, force=force, logger=logger)
