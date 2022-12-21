@@ -244,7 +244,6 @@ def workflow(
     """
     logger = get_run_logger()
     logger.info("Started running Koopa!")
-    koopa.util.configure_gpu(False)
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
     core_workflow(config_path=config_path, force=force, logger=logger)
 
@@ -257,7 +256,7 @@ def workflow(
         cluster_kwargs={
             "account": "dlthings",
             "queue": "gpu_short",
-            "cores": 4,
+            "cores": 8,
             "processes": 1,
             "memory": "32 GB",
             "walltime": "04:00:00",
@@ -293,6 +292,6 @@ def gpu_workflow(
     """GPU specific workflow."""
     logger = get_run_logger()
     logger.info("Started running Koopa-GPU!")
-    koopa.util.configure_gpu(True)
+    koopa.util.configure_gpu(0, memory_limit=32_768)
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
     core_workflow(config_path=config_path, force=force, logger=logger)
