@@ -7,8 +7,9 @@ import koopa
 
 
 @task(name="Spots (Detect)")
-def detect(fname: str, path: os.PathLike, index_list: int, config: dict):
-    koopa.util.configure_gpu(0, memory_limit=None)
+def detect(fname: str, path: os.PathLike, index_list: int, config: dict, gpu: bool = False):
+    if gpu:
+        koopa.util.configure_gpu(0, memory_limit=None)
 
     # Config
     index_channel = config["detect_channels"][index_list]

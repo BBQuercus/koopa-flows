@@ -8,7 +8,6 @@ from prefect import flow
 from prefect import get_run_logger
 from prefect_dask import DaskTaskRunner
 import koopa
-import tensorflow as tf
 
 import tasks_postprocess
 import tasks_preprocess
@@ -30,7 +29,11 @@ def file_independent(config: dict):
 
 
 def cell_segmentation(
-    fnames: List[str], config: dict, kwargs: dict, dependencies: list
+    fnames: List[str],
+    config: dict,
+    kwargs: dict,
+    dependencies: list,
+    gpu: bool,
 ):
     segmentation = []
     for fname in fnames:
@@ -50,7 +53,7 @@ def cell_segmentation(
             continue
 
         brain_1 = tasks_segment.segment_cells_predict.submit(
-            fname, **kwargs, wait_for=dependencies
+            fname, **kwargs, gpu=gpu, wait_for=dependencies
         )
         brain_2 = tasks_segment.segment_cells_merge.submit(
             fname, **kwargs, wait_for=[brain_1]
@@ -62,7 +65,7 @@ def cell_segmentation(
 
 
 def other_segmentation(
-    fnames: List[str], config: dict, kwargs: dict, dependencies: list
+    fnames: List[str], config: dict, kwargs: dict, dependencies: list, gpu: bool
 ):
     if not config["sego_enabled"]:
         return []
@@ -70,20 +73,22 @@ def other_segmentation(
     channels = range(len(config["sego_channels"]))
     return [
         tasks_segment.segment_other.submit(
-            fname, **kwargs, index_list=index, wait_for=dependencies
+            fname, **kwargs, gpu=gpu, index_list=index, wait_for=dependencies
         )
         for fname, index in itertools.product(fnames, channels)
     ]
 
 
-def spot_detection(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
+def spot_detection(
+    fnames: List[str], config: dict, kwargs: dict, dependencies: list, gpu: bool
+):
     # Detection
     channels = range(len(config["detect_channels"]))
     detect = []
     for fname, index in itertools.product(fnames, channels):
         detect.append(
             tasks_spots.detect.submit(
-                fname, **kwargs, index_list=index, wait_for=dependencies
+                fname, **kwargs, gpu=gpu, index_list=index, wait_for=dependencies
             )
         )
     if not config["do_3d"] and not config["do_timeseries"]:
@@ -161,7 +166,9 @@ def update_koopa(reinstall: bool = False):
     logger.info(f"Upgraded koopa from Version {pre} -> {post}")
 
 
-def core_workflow(config_path: str, force: bool, logger: logging.Logger):
+def core_workflow(
+    config_path: str, force: bool, logger: logging.Logger, gpu: bool = False
+):
     # File independent tasks
     config = tasks_util.configuration(config_path, force)
     file_independent(config)
@@ -177,11 +184,15 @@ def core_workflow(config_path: str, force: bool, logger: logging.Logger):
     ]
 
     # Segmentation
-    seg_cells = cell_segmentation(fnames, config, kwargs, dependencies=preprocess)
-    seg_other = other_segmentation(fnames, config, kwargs, dependencies=preprocess)
+    seg_cells = cell_segmentation(
+        fnames, config, kwargs, dependencies=preprocess, gpu=gpu
+    )
+    seg_other = other_segmentation(
+        fnames, config, kwargs, dependencies=preprocess, gpu=gpu
+    )
 
     # Spots
-    spots = spot_detection(fnames, config, kwargs, dependencies=preprocess)
+    spots = spot_detection(fnames, config, kwargs, dependencies=preprocess, gpu=gpu)
     coloc = colocalization(fnames, config, kwargs, dependencies=spots)
 
     # Merge
@@ -246,7 +257,7 @@ def workflow(
     logger = get_run_logger()
     logger.info("Started running Koopa!")
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
-    core_workflow(config_path=config_path, force=force, logger=logger)
+    core_workflow(config_path=config_path, force=force, logger=logger, gpu=False)
 
 
 @flow(
@@ -293,7 +304,5 @@ def gpu_workflow(
     """GPU specific workflow."""
     logger = get_run_logger()
     logger.info("Started running Koopa-GPU!")
-    # os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
-    # physical_devices = tf.config.list_physical_devices("GPU")
-    # tf.config.experimental.set_memory_growth(physical_devices[0], True)
-    core_workflow(config_path=config_path, force=force, logger=logger)
+    os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
+    core_workflow(config_path=config_path, force=force, logger=logger, gpu=True)

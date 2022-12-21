@@ -61,8 +61,11 @@ def segment_cells_both(fname: str, path: os.PathLike, config: dict):
 
 
 @task(name="Segment Cells (Predict)")
-def segment_cells_predict(fname: str, path: os.PathLike, config: dict):
-    koopa.util.configure_gpu(0, memory_limit=None)
+def segment_cells_predict(
+    fname: str, path: os.PathLike, config: dict, gpu: bool = False
+):
+    if gpu:
+        koopa.util.configure_gpu(0, memory_limit=None)
 
     # Config
     fname_image = os.path.join(path, "preprocessed", f"{fname}.tif")
@@ -127,8 +130,11 @@ def dilate_cells(fname: str, path: os.PathLike, config: dict):
 
 
 @task(name="Segment Other", description="")
-def segment_other(fname: str, path: os.PathLike, index_list: int, config: dict):
-    koopa.util.configure_gpu(0, memory_limit=None)
+def segment_other(
+    fname: str, path: os.PathLike, index_list: int, config: dict, gpu: bool = False
+):
+    if gpu:
+        koopa.util.configure_gpu(0, memory_limit=None)
 
     # Config
     index_channel = config["sego_channels"][index_list]
