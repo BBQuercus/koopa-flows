@@ -8,7 +8,7 @@ from prefect import flow
 from prefect import get_run_logger
 from prefect_dask import DaskTaskRunner
 import koopa
-import torch
+import tensorflow as tf
 
 import tasks_postprocess
 import tasks_preprocess
@@ -293,6 +293,9 @@ def gpu_workflow(
     """GPU specific workflow."""
     logger = get_run_logger()
     logger.info("Started running Koopa-GPU!")
-    koopa.util.configure_gpu(0, memory_limit=16384)
+    # koopa.util.configure_gpu(0, memory_limit=16384)
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    physical_devices = tf.config.list_physical_devices("GPU")
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
     core_workflow(config_path=config_path, force=force, logger=logger)
