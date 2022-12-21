@@ -32,6 +32,8 @@ def file_independent(config: dict):
 def cell_segmentation(
     fnames: List[str], config: dict, kwargs: dict, dependencies: list
 ):
+    koopa.util.configure_gpu(0, memory_limit=None)
+
     segmentation = []
     for fname in fnames:
         if not config["brains_enabled"]:
@@ -64,6 +66,8 @@ def cell_segmentation(
 def other_segmentation(
     fnames: List[str], config: dict, kwargs: dict, dependencies: list
 ):
+    koopa.util.configure_gpu(0, memory_limit=None)
+
     if not config["sego_enabled"]:
         return []
 
@@ -77,6 +81,8 @@ def other_segmentation(
 
 
 def spot_detection(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
+    koopa.util.configure_gpu(0, memory_limit=None)
+
     # Detection
     channels = range(len(config["detect_channels"]))
     detect = []
@@ -293,9 +299,7 @@ def gpu_workflow(
     """GPU specific workflow."""
     logger = get_run_logger()
     logger.info("Started running Koopa-GPU!")
-    # koopa.util.configure_gpu(0, memory_limit=16384)
-    os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
-    physical_devices = tf.config.list_physical_devices("GPU")
-    logger.info(f"Found GPUs - {physical_devices}")
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    # os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
+    # physical_devices = tf.config.list_physical_devices("GPU")
+    # tf.config.experimental.set_memory_growth(physical_devices[0], True)
     core_workflow(config_path=config_path, force=force, logger=logger)
