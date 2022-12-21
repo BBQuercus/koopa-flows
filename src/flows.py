@@ -295,7 +295,7 @@ def gpu_workflow(
     logger.info("Started running Koopa-GPU!")
     # koopa.util.configure_gpu(0, memory_limit=16384)
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.path.join(root_dir, ".cellpose")
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     physical_devices = tf.config.list_physical_devices("GPU")
+    logger.info(f"Found GPUs - {physical_devices}")
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
     core_workflow(config_path=config_path, force=force, logger=logger)
