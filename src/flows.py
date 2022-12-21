@@ -32,8 +32,6 @@ def file_independent(config: dict):
 def cell_segmentation(
     fnames: List[str], config: dict, kwargs: dict, dependencies: list
 ):
-    koopa.util.configure_gpu(0, memory_limit=None)
-
     segmentation = []
     for fname in fnames:
         if not config["brains_enabled"]:
@@ -66,8 +64,6 @@ def cell_segmentation(
 def other_segmentation(
     fnames: List[str], config: dict, kwargs: dict, dependencies: list
 ):
-    koopa.util.configure_gpu(0, memory_limit=None)
-
     if not config["sego_enabled"]:
         return []
 
@@ -81,8 +77,6 @@ def other_segmentation(
 
 
 def spot_detection(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
-    koopa.util.configure_gpu(0, memory_limit=None)
-
     # Detection
     channels = range(len(config["detect_channels"]))
     detect = []

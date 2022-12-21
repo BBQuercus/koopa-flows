@@ -8,6 +8,8 @@ import koopa
 
 @task(name="Spots (Detect)")
 def detect(fname: str, path: os.PathLike, index_list: int, config: dict):
+    koopa.util.configure_gpu(0, memory_limit=None)
+
     # Config
     index_channel = config["detect_channels"][index_list]
     fname_image = os.path.join(path, "preprocessed", f"{fname}.tif")
