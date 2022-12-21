@@ -6,7 +6,7 @@ import deepblink as pink
 import koopa
 
 
-@task(name="Spots (Detect)", tags=["GPU"])
+@task(name="Spots (Detect)")
 def detect(fname: str, path: os.PathLike, index_list: int, config: dict):
     # Config
     index_channel = config["detect_channels"][index_list]

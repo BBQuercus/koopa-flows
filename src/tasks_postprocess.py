@@ -38,7 +38,9 @@ def merge_single(fname: str, path: os.PathLike, config: dict):
 @task(name="Merge Output (All)")
 def merge_all(path: os.PathLike, dfs: List[Tuple[pd.DataFrame]]):
     """Merge all analysis files into a single summary file."""
+    logger = get_run_logger()
     for idx, fname in enumerate(("summary.csv", "summary_cells.csv")):
         df = pd.concat([i[idx] for i in dfs], ignore_index=True)
         fname_out = os.path.join(path, fname)
         koopa.io.save_csv(fname_out, df)
+    logger.info("Koopa finished analyzing everything!")

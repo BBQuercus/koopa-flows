@@ -60,7 +60,7 @@ def segment_cells_both(fname: str, path: os.PathLike, config: dict):
     koopa.io.save_image(fname_nuclei, segmap_nuclei)
 
 
-@task(name="Segment Cells (Predict)", tags=["GPU"])
+@task(name="Segment Cells (Predict)")
 def segment_cells_predict(fname: str, path: os.PathLike, config: dict):
     # Config
     fname_image = os.path.join(path, "preprocessed", f"{fname}.tif")

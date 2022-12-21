@@ -1,5 +1,6 @@
 from typing import List
 import itertools
+import logging
 import subprocess
 
 from prefect import flow
@@ -157,6 +158,35 @@ def update_koopa(reinstall: bool = False):
     logger.info(f"Upgraded koopa from Version {pre} -> {post}")
 
 
+def core_workflow(config_path: str, force: bool, logger: logging.Logger):
+    # File independent tasks
+    config = tasks_util.configuration(config_path, force)
+    file_independent(config)
+
+    # Workflow
+    fnames = koopa.util.get_file_list(config["input_path"], config["file_ext"])
+    logger.info(f"Running analysis with {len(fnames)} files - {fnames}")
+    kwargs = dict(path=config["output_path"], config=config)
+
+    # Preprocess
+    preprocess = [
+        tasks_preprocess.preprocess.submit(fname, **kwargs) for fname in fnames
+    ]
+
+    # Segmentation
+    seg_cells = cell_segmentation(fnames, config, kwargs, dependencies=preprocess)
+    seg_other = other_segmentation(fnames, config, kwargs, dependencies=preprocess)
+
+    # Spots
+    spots = spot_detection(fnames, config, kwargs, dependencies=preprocess)
+    coloc = colocalization(fnames, config, kwargs, dependencies=spots)
+
+    # Merge
+    merging(
+        fnames, config, kwargs, dependencies=[*spots, *coloc, *seg_cells, *seg_other]
+    )
+
+
 @flow(
     name="Koopa",
     version=koopa.__version__,
@@ -198,43 +228,18 @@ def workflow(config_path: str, force: bool = False):
     Arguments:
         * config_path: Path to koopa configuration file.
             Path must be passed linux-compatible (e.g. /tungstenfs/scratch/...).
-            The default configuration file can be viewed and downloaded [here](https://raw.githubusercontent.com/BBQuercus/koopa-flows/main/koopa.cfg).
+            The default configuration file can be viewed and downloaded
+            [here](https://raw.githubusercontent.com/fmi-basel/gchao-koopa-flows/main/koopa.cfg).
 
         * force: If selected, the entire workflow will be re-run.
             Otherwise, only the not yet executed components (missing files) are run.
 
-    All documentation can be found on the koopa wiki (https://github.com/BBQuercus/koopa/wiki).
+    All documentation can be found on the koopa wiki (https://github.com/fmi-basel/gchao-koopa/wiki).
     """
     logger = get_run_logger()
     logger.info("Started running Koopa!")
     koopa.util.configure_gpu(False)
-
-    # File independent tasks
-    config = tasks_util.configuration(config_path, force)
-    file_independent(config)
-
-    # Workflow
-    fnames = koopa.util.get_file_list(config["input_path"], config["file_ext"])
-    kwargs = dict(path=config["output_path"], config=config)
-
-    # Preprocess
-    preprocess = [
-        tasks_preprocess.preprocess.submit(fname, **kwargs) for fname in fnames
-    ]
-
-    # Segmentation
-    seg_cells = cell_segmentation(fnames, config, kwargs, dependencies=preprocess)
-    seg_other = other_segmentation(fnames, config, kwargs, dependencies=preprocess)
-
-    # Spots
-    spots = spot_detection(fnames, config, kwargs, dependencies=preprocess)
-    coloc = colocalization(fnames, config, kwargs, dependencies=spots)
-
-    # Merge
-    merging(
-        fnames, config, kwargs, dependencies=[*spots, *coloc, *seg_cells, *seg_other]
-    )
-    logger.info("Koopa finished analyzing everything!")
+    core_workflow(config_path=config_path, force=force, logger=logger)
 
 
 @flow(
@@ -247,7 +252,7 @@ def workflow(config_path: str, force: bool = False):
             "queue": "gpu_short",
             "cores": 4,
             "processes": 1,
-            "memory": "16 GB",
+            "memory": "32 GB",
             "walltime": "04:00:00",
             "job_extra_directives": [
                 "--gpus-per-node=1",
@@ -276,32 +281,6 @@ def workflow(config_path: str, force: bool = False):
 def gpu_workflow(config_path: str, force: bool = False):
     """GPU specific workflow."""
     logger = get_run_logger()
-    logger.info("Started running Koopa!")
+    logger.info("Started running Koopa-GPU!")
     koopa.util.configure_gpu(True)
-
-    # File independent tasks
-    config = tasks_util.configuration(config_path, force)
-    file_independent(config)
-
-    # Workflow
-    fnames = koopa.util.get_file_list(config["input_path"], config["file_ext"])
-    kwargs = dict(path=config["output_path"], config=config)
-
-    # Preprocess
-    preprocess = [
-        tasks_preprocess.preprocess.submit(fname, **kwargs) for fname in fnames
-    ]
-
-    # Segmentation
-    seg_cells = cell_segmentation(fnames, config, kwargs, dependencies=preprocess)
-    seg_other = other_segmentation(fnames, config, kwargs, dependencies=preprocess)
-
-    # Spots
-    spots = spot_detection(fnames, config, kwargs, dependencies=preprocess)
-    coloc = colocalization(fnames, config, kwargs, dependencies=spots)
-
-    # Merge
-    merging(
-        fnames, config, kwargs, dependencies=[*spots, *coloc, *seg_cells, *seg_other]
-    )
-    logger.info("Koopa finished analyzing everything!")
+    core_workflow(config_path=config_path, force=force, logger=logger)
