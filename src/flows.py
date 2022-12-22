@@ -209,9 +209,9 @@ def core_workflow(
         cluster_kwargs={
             "account": "dlthings",
             "queue": "cpu_short",
-            "cores": 8,
-            "processes": 2,
-            "memory": "16 GB",
+            "cores": 16,
+            "processes": 1,
+            "memory": "64 GB",
             "walltime": "02:00:00",
             "job_extra_directives": [
                 "--ntasks=1",
@@ -232,7 +232,7 @@ def core_workflow(
         },
         adapt_kwargs={
             "minimum": 1,
-            "maximum": 16,
+            "maximum": 8,
         },
     ),
 )
