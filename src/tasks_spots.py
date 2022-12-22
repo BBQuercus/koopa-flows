@@ -20,7 +20,7 @@ def detect(fname: str, path: os.PathLike, index_list: int, config: dict, gpu: bo
 
     # Input
     image = koopa.io.load_image(fname_image)
-    model = pink.io.load_model(config["detect_models"][index_channel])
+    model = pink.io.load_model(config["detect_models"][index_list])
 
     # Run
     df = koopa.detect.detect_image(

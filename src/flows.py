@@ -209,8 +209,8 @@ def core_workflow(
         cluster_kwargs={
             "account": "dlthings",
             "queue": "cpu_short",
-            "cores": 4,
-            "processes": 1,
+            "cores": 8,
+            "processes": 2,
             "memory": "16 GB",
             "walltime": "02:00:00",
             "job_extra_directives": [
@@ -249,8 +249,8 @@ def workflow(
             The default configuration file can be viewed and downloaded
             [here](https://raw.githubusercontent.com/fmi-basel/gchao-koopa-flows/main/koopa.cfg).
 
-        * force: If selected, the entire workflow will be re-run.
-            Otherwise, only the not yet executed components (missing files) are run.
+        * force: If selected, the entire workflow will be re-run overwriting previous files.
+            Otherwise, only the not yet executed components (missing files) are run without overwriting.
 
     All documentation can be found on the koopa wiki (https://github.com/fmi-basel/gchao-koopa/wiki).
     """
