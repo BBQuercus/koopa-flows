@@ -183,13 +183,13 @@ def core_workflow(
     for fname in fnames:
         preprocess = [tasks_preprocess.preprocess.submit(fname, **kwargs)]
         seg_cells = cell_segmentation(
-            fnames, config, kwargs, dependencies=preprocess, gpu=gpu
+            fname, config, kwargs, dependencies=preprocess, gpu=gpu
         )
         seg_other = other_segmentation(
-            fnames, config, kwargs, dependencies=preprocess, gpu=gpu
+            fname, config, kwargs, dependencies=preprocess, gpu=gpu
         )
-        spots = spot_detection(fnames, config, kwargs, dependencies=preprocess, gpu=gpu)
-        coloc = colocalization(fnames, config, kwargs, dependencies=spots)
+        spots = spot_detection(fname, config, kwargs, dependencies=preprocess, gpu=gpu)
+        coloc = colocalization(fname, config, kwargs, dependencies=spots)
         dependencies.extend([*spots, *coloc, seg_cells, *seg_other])
 
     merging(fnames, config, kwargs, dependencies=dependencies)
