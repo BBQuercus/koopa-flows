@@ -224,10 +224,7 @@ def core_workflow(
                 "15m",
             ],
             "job_script_prologue": [
-                """conda run
-                    -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable
-                    python /tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py
-                    --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"""
+                "conda run -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable python tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"
             ],
         },
         adapt_kwargs={
@@ -284,10 +281,7 @@ def workflow(
                 "15m",
             ],
             "job_script_prologue": [
-                """conda run
-                    -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable
-                    python /tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py
-                    --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"""
+                "conda run -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable python tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"
             ],
         },
         adapt_kwargs={
