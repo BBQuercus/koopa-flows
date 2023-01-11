@@ -1,5 +1,4 @@
 from typing import List
-import itertools
 import logging
 import os
 import subprocess
@@ -133,10 +132,11 @@ def colocalization(fname: str, config: dict, kwargs: dict, dependencies: list) -
 
 def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list) -> None:
     """Wrapper for merginc and summary file creation."""
-    singles = [
-        tasks_postprocess.merge_single.submit(fname, **kwargs, wait_for=dependencies)
-        for fname in fnames
-    ]
+    singles = []
+    for fname, dependency in zip(fnames, dependencies):
+        singles.append(
+            tasks_postprocess.merge_single.submit(fname, **kwargs, wait_for=dependency)
+        )
     tasks_postprocess.merge_all.submit(config["output_path"], singles, wait_for=singles)
 
 
@@ -190,7 +190,7 @@ def core_workflow(
         )
         spots = spot_detection(fname, config, kwargs, dependencies=preprocess, gpu=gpu)
         coloc = colocalization(fname, config, kwargs, dependencies=spots)
-        dependencies.extend([*spots, *coloc, seg_cells, *seg_other])
+        dependencies.append((*spots, *coloc, seg_cells, *seg_other))
 
     merging(fnames, config, kwargs, dependencies=dependencies)
 
