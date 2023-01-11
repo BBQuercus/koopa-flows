@@ -17,6 +17,7 @@ import tasks_util
 
 
 def file_independent(config: dict):
+    """Wrapper for preliminary, file independent tasks."""
     tasks_util.save_conda_env.submit(path_out=config["output_path"])
     tasks_util.save_system_information.submit(path_out=config["output_path"])
 
@@ -29,63 +30,58 @@ def file_independent(config: dict):
 
 
 def cell_segmentation(
-    fnames: List[str],
+    fname: str,
     config: dict,
     kwargs: dict,
     dependencies: list,
     gpu: bool,
 ):
-    segmentation = []
-    for fname in fnames:
-        if not config["brains_enabled"]:
-            if config["selection"] == "both":
-                segmentation.append(
-                    tasks_segment.segment_cells_both.submit(
-                        fname, **kwargs, wait_for=dependencies
-                    )
-                )
-            else:
-                segmentation.append(
-                    tasks_segment.segment_cells_single.submit(
-                        fname, **kwargs, wait_for=dependencies
-                    )
-                )
-            continue
+    """Wrapper for cell segmentation task submission."""
+    if not config["brains_enabled"]:
+        if config["selection"] == "both":
+            return tasks_segment.segment_cells_both.submit(
+                fname, **kwargs, wait_for=dependencies
+            )
+        else:
+            return tasks_segment.segment_cells_single.submit(
+                fname, **kwargs, wait_for=dependencies
+            )
 
-        brain_1 = tasks_segment.segment_cells_predict.submit(
-            fname, **kwargs, gpu=gpu, wait_for=dependencies
-        )
-        brain_2 = tasks_segment.segment_cells_merge.submit(
-            fname, **kwargs, wait_for=[brain_1]
-        )
-        segmentation.append(
-            tasks_segment.dilate_cells.submit(fname, **kwargs, wait_for=[brain_2])
-        )
-    return segmentation
+    brain_1 = tasks_segment.segment_cells_predict.submit(
+        fname, **kwargs, gpu=gpu, wait_for=dependencies
+    )
+    brain_2 = tasks_segment.segment_cells_merge.submit(
+        fname, **kwargs, wait_for=[brain_1]
+    )
+    return tasks_segment.dilate_cells.submit(fname, **kwargs, wait_for=[brain_2])
 
 
 def other_segmentation(
-    fnames: List[str], config: dict, kwargs: dict, dependencies: list, gpu: bool
-):
+    fname: str, config: dict, kwargs: dict, dependencies: list, gpu: bool
+) -> list:
+    """Wrapper for segment_other task submission."""
     if not config["sego_enabled"]:
         return []
 
     channels = range(len(config["sego_channels"]))
-    return [
-        tasks_segment.segment_other.submit(
-            fname, **kwargs, gpu=gpu, index_list=index, wait_for=dependencies
+    tasks = []
+    for index in channels:
+        tasks.append(
+            tasks_segment.segment_other.submit(
+                fname, **kwargs, gpu=gpu, index_list=index, wait_for=dependencies
+            )
         )
-        for fname, index in itertools.product(fnames, channels)
-    ]
+    return tasks
 
 
 def spot_detection(
-    fnames: List[str], config: dict, kwargs: dict, dependencies: list, gpu: bool
-):
+    fname: str, config: dict, kwargs: dict, dependencies: list, gpu: bool
+) -> list:
+    """Wrapper for spot detection and tracking task submission."""
     # Detection
     channels = range(len(config["detect_channels"]))
     detect = []
-    for fname, index in itertools.product(fnames, channels):
+    for index in channels:
         detect.append(
             tasks_spots.detect.submit(
                 fname, **kwargs, gpu=gpu, index_list=index, wait_for=dependencies
@@ -96,7 +92,7 @@ def spot_detection(
 
     # Tracking
     track = []
-    for fname, index in itertools.product(fnames, config["detect_channels"]):
+    for index in config["detect_channels"]:
         track.append(
             tasks_spots.track.submit(
                 fname, **kwargs, index_channel=index, wait_for=detect
@@ -105,14 +101,13 @@ def spot_detection(
     return track
 
 
-def colocalization(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
+def colocalization(fname: str, config: dict, kwargs: dict, dependencies: list) -> list:
+    """Wrapper for spot colocalization task submission."""
     if not config["coloc_enabled"]:
         return []
 
     colocalization = []
-    for fname, (reference, transform) in itertools.product(
-        fnames, config["coloc_channels"]
-    ):
+    for reference, transform in config["coloc_channels"]:
         if config["do_timeseries"]:
             colocalization.append(
                 tasks_spots.colocalize_track.submit(
@@ -136,7 +131,8 @@ def colocalization(fnames: List[str], config: dict, kwargs: dict, dependencies: 
     return colocalization
 
 
-def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
+def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list) -> None:
+    """Wrapper for merginc and summary file creation."""
     singles = [
         tasks_postprocess.merge_single.submit(fname, **kwargs, wait_for=dependencies)
         for fname in fnames
@@ -146,6 +142,11 @@ def merging(fnames: List[str], config: dict, kwargs: dict, dependencies: list):
 
 @flow(name="Update Koopa")
 def update_koopa(reinstall: bool = False):
+    """Updates koopa via pip after checking for the latest version.
+
+    Arguments:
+        * reinstall: forces reinstall even if already on latest version.
+    """
     logger = get_run_logger()
     logger.info("Starting koopa's update")
     subprocess.check_call(["pip", "install", "koopa"])
@@ -178,27 +179,20 @@ def core_workflow(
     logger.info(f"Running analysis with {len(fnames)} files - {fnames}")
     kwargs = dict(path=config["output_path"], config=config)
 
-    # Preprocess
-    preprocess = [
-        tasks_preprocess.preprocess.submit(fname, **kwargs) for fname in fnames
-    ]
+    dependencies = []
+    for fname in fnames:
+        preprocess = [tasks_preprocess.preprocess.submit(fname, **kwargs)]
+        seg_cells = cell_segmentation(
+            fnames, config, kwargs, dependencies=preprocess, gpu=gpu
+        )
+        seg_other = other_segmentation(
+            fnames, config, kwargs, dependencies=preprocess, gpu=gpu
+        )
+        spots = spot_detection(fnames, config, kwargs, dependencies=preprocess, gpu=gpu)
+        coloc = colocalization(fnames, config, kwargs, dependencies=spots)
+        dependencies.extend([*spots, *coloc, seg_cells, *seg_other])
 
-    # Segmentation
-    seg_cells = cell_segmentation(
-        fnames, config, kwargs, dependencies=preprocess, gpu=gpu
-    )
-    seg_other = other_segmentation(
-        fnames, config, kwargs, dependencies=preprocess, gpu=gpu
-    )
-
-    # Spots
-    spots = spot_detection(fnames, config, kwargs, dependencies=preprocess, gpu=gpu)
-    coloc = colocalization(fnames, config, kwargs, dependencies=spots)
-
-    # Merge
-    merging(
-        fnames, config, kwargs, dependencies=[*spots, *coloc, *seg_cells, *seg_other]
-    )
+    merging(fnames, config, kwargs, dependencies=dependencies)
 
 
 @flow(
