@@ -1,6 +1,4 @@
 import threading
-from glob import glob
-from os.path import join
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import os
@@ -13,9 +11,6 @@ import deepblink as pink
 
 import prefect
 from koopa.detect import detect_image
-from prefect import get_client
-from prefect.client.schemas import FlowRun
-from prefect.deployments import run_deployment
 
 from .cpr_parquet import ParquetTarget
 
@@ -115,39 +110,4 @@ def deepblink_spot_detection_flow(
     logger.info(f"output from task - {output}")
     logger.info("finished sub flow")
 
-
-@prefect.flow(
-    name="DeepBlink Spot Detection",
-    cache_result_in_memory=False,
-    persist_result=True,
-    result_serializer=cpr_serializer(),
-    validate_parameters=False,
-)
-def run_deepblink(
-    input_path: Path = "/path/to/acquisition/dir",
-    output_path: Path = "/path/to/output/dir",
-    pattern: str = "*.tif",
-    detection_channels: List[int] = [0],
-    deepblink_models: List[Path] = ["/path/to/model.h5"],
-):
-    images = [ImageSource.from_path(p) for p in glob(join(input_path,
-                                                          pattern))]
-
-    images_dicts = [img.serialize() for img in images]
-
-    parameters = {
-        "serialized_preprocessed": images_dicts,
-        "out_dir": output_path,
-        "detection_channels": detection_channels,
-        "deepblink_models": deepblink_models,
-    }
-
-    run: FlowRun = run_deployment(
-        name="deepblink/default",
-        parameters=parameters,
-        client=get_client(),
-    )
-
-    detections = run.state.result()
-    return detections
 
