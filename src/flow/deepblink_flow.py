@@ -41,7 +41,7 @@ def deepblink_spot_detection_task(
         gpu_sem: threading.Semaphore
 ) -> ParquetTarget:
     logger = prefect.get_run_logger()
-    logger.info("running task")
+    logger.info(image.get_path())
 
     data = image.get_data()
 
@@ -57,18 +57,12 @@ def deepblink_spot_detection_task(
 
 
     df.insert(loc=0, column="FileID", value=image.get_name())
-    logger.info("detected")
 
     fname_out = os.path.join(
         out_dir, f"test2d_detection_c{detection_channel}", f"{image.get_name()}.parq"
     )
     output = ParquetTarget.from_path(fname_out)
     output.set_data(df)
-
-    logger.info(f"image name - {image.get_name()}")
-    logger.info(f"output name - {fname_out}")
-    logger.info(f"output path - {output.get_path()}")
-    logger.info("finished task")
     return output
 
 
