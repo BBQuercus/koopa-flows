@@ -21,7 +21,7 @@ def exclude_sem_and_model_input_hash(
     hash_args = {}
     for k, item in arguments.items():
         if (not isinstance(item, threading.Semaphore)) and (
-            not isinstance(item, tf.keras.Model)
+            not isinstance(item, tf.keras.models.Model)
         ):
             hash_args[k] = item
 
