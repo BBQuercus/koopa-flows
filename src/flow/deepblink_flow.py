@@ -20,10 +20,11 @@ def exclude_sem_and_model_input_hash(
 ) -> Optional[str]:
     hash_args = {}
     for k, item in arguments.items():
-        if (not isinstance(item, threading.Semaphore)) and (
-            not isinstance(item, tf.keras.models.Model)
-        ):
-            hash_args[k] = item
+        if not isinstance(item, threading.Semaphore):
+            if isinstance(item, tf.keras.models.Model):
+                hash_args[k] = item.summary()
+            else:
+                hash_args[k] = item
 
     return task_input_hash(context, hash_args)
 
