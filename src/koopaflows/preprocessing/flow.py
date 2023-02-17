@@ -13,7 +13,7 @@ from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
 
 @task(cache_key_fn=task_input_hash)
 def load_images(input_dir, ext):
-    assert ext in ['.tif', '.stk', '.nd', '.czi'], 'File format not supported.'
+    assert ext in ['tif', 'stk', 'nd', 'czi'], 'File format not supported.'
 
     pattern_re = re.compile(f".*{ext}")
 
@@ -27,7 +27,7 @@ def load_images(input_dir, ext):
 
 
 class Preprocess3Dto2D(BaseModel):
-    file_extension: str = "nd"
+    file_extension: Literal["tif", "stk", "nd", "czi"] = "nd"
     projection_operator: Literal["maximum", "mean", "sharpest"] = "maximum"
 
 
@@ -49,13 +49,14 @@ def preprocess_flow(
                              f"preprocess_3D-2D_{prepocess.projection_operator}")
     os.makedirs(preprocess_output, exist_ok=True)
 
-    raw_files = load_images(input_path)
+    raw_files = load_images(input_path, prepocess.file_extension)
 
     preprocessed = []
     for file in raw_files:
         preprocessed.append(
             load_and_preprocess_3D_to_2D.submit(
                 file=file,
+                ext=prepocess.file_extension,
                 projection_operator=prepocess.projection_operator,
                 out_dir=preprocess_output,
             )
