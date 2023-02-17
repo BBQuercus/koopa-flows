@@ -23,7 +23,7 @@ def load_and_preprocess_3D_to_2D(
 
     name, _ = splitext(basename(file))
     output = ImageTarget.from_path(
-        path=os.path.join(out_dir, basename(file) + ".tif"),
+        path=os.path.join(out_dir, name + ".tif"),
     )
     output.set_data(data)
     return output
