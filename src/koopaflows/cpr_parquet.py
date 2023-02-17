@@ -1,10 +1,14 @@
 import os
 
+import cpr
 from cpr.Resource import Resource
+from cpr.Serializer import cpr_serializer
 from cpr.Target import Target
 import koopa.io
 import pandas as pd
 import xxhash
+from prefect.serializers import JSONSerializer
+from prefect.utilities.importtools import from_qualified_name
 
 
 class ParquetSource(Resource):
@@ -47,3 +51,26 @@ class ParquetTarget(Target):
     def _write_data(self):
         if self._data is not None:
             koopa.io.save_parquet(self.get_path(), self._data)
+
+def target_decoder(result: dict):
+    """
+        Decoder which takes care of cpr objects.
+
+        Otherwise prefect_json_object_decoder is used.
+        """
+    if "__class__" in result:
+        if result["__class__"].startswith("koopaflows.cpr_parquet."):
+            clazz = from_qualified_name(result["__class__"])
+            return clazz(**result["data"])
+        else:
+            return cpr.Serializer.target_decoder(result)
+
+    return result
+
+def koopa_serializer(dumps_kwargs={}) -> JSONSerializer:
+    """JSONSerializer configured to work with cpr objects."""
+    return JSONSerializer(
+        object_encoder="cpr.Serializer.target_encoder",
+        object_decoder="koopaflows.cpr_parquet.target_decoder",
+        dumps_kwargs=dumps_kwargs,
+    )

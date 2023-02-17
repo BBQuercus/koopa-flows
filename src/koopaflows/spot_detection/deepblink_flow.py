@@ -7,12 +7,11 @@ from typing import List, Dict, Any, Optional
 import deepblink as pink
 import prefect
 import tensorflow as tf
-from cpr.Serializer import cpr_serializer
 from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
 from koopa.detect import detect_image
 
-from koopaflows.cpr_parquet import ParquetTarget
+from koopaflows.cpr_parquet import ParquetTarget, koopa_serializer
 
 
 def exclude_sem_and_model_input_hash(
@@ -71,7 +70,7 @@ def deepblink_spot_detection_task(
     name="deepblink",
     cache_result_in_memory=False,
     persist_result=True,
-    result_serializer=cpr_serializer(),
+    result_serializer=koopa_serializer(),
     validate_parameters=False,
 )
 def deepblink_spot_detection_flow(

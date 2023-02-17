@@ -6,6 +6,7 @@ from typing import List
 import prefect
 from cpr.Serializer import cpr_serializer
 from cpr.image.ImageSource import ImageSource
+from koopaflows.cpr_parquet import koopa_serializer
 from prefect import get_client
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
@@ -15,7 +16,7 @@ from prefect.deployments import run_deployment
     name="DeepBlink Spot Detection",
     cache_result_in_memory=False,
     persist_result=True,
-    result_serializer=cpr_serializer(),
+    result_serializer=koopa_serializer(),
     validate_parameters=False,
 )
 def run_deepblink(
