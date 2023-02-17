@@ -57,7 +57,7 @@ def preprocess_flow(
             preprocess_3D_to_2D.submit(
                 img=img,
                 projection_operator=prepocess.projection_operator,
-                output_path=preprocess_output,
+                out_dir=preprocess_output,
             )
         )
 
