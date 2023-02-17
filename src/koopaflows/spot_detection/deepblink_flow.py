@@ -1,5 +1,6 @@
 import os
 import threading
+from os.path import join
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -11,7 +12,7 @@ from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
 from koopa.detect import detect_image
 
-from src.flow.cpr_parquet import ParquetTarget
+from koopaflows.cpr_parquet import ParquetTarget
 
 
 def exclude_sem_and_model_input_hash(
@@ -75,10 +76,16 @@ def deepblink_spot_detection_task(
 )
 def deepblink_spot_detection_flow(
         serialized_preprocessed: List[dict],
-        out_dir: Path,
+        output_path: str,
+        run_name: str,
         detection_channels: List[int],
         deepblink_models: List[Path],
 ) -> Dict[int, List[ParquetTarget]]:
+    run_dir = join(output_path, run_name)
+
+    preprocess_output = join(run_dir, "deepblink")
+    os.makedirs(preprocess_output, exist_ok=True)
+
     preprocessed = [ImageSource(**d) for d in serialized_preprocessed]
 
     gpu_sem = threading.Semaphore(1)
@@ -92,7 +99,7 @@ def deepblink_spot_detection_flow(
             task = deepblink_spot_detection_task.submit(
                 image=img,
                 detection_channel=channel,
-                out_dir=out_dir,
+                out_dir=preprocess_output,
                 model=model,
                 model_name=model_path,
                 gpu_sem=gpu_sem,

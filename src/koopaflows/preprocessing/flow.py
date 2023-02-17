@@ -41,23 +41,24 @@ def preprocess_flow(
         input_path: str = "/tungstenfs/scratch/gchao/grieesth/Export_DRB/20221216_HeLa11ht-pIM40nuc-JunD-2_HS-42C-30or1h_DRB-4h_washout-30min-1h-2h_smFISH-IF_HSPH1_SC35/",
         output_path: str = "/path/to/output/dir",
         run_name: str = "run-1",
-        prepocess: Preprocess3Dto2D = Preprocess3Dto2D(),
+        preprocess: Preprocess3Dto2D = Preprocess3Dto2D(),
 ):
     run_dir = join(output_path, run_name)
 
     preprocess_output = join(run_dir,
-                             f"preprocess_3D-2D_{prepocess.projection_operator}")
+                             f"preprocess_3D-2D_"
+                             f"{preprocess.projection_operator}")
     os.makedirs(preprocess_output, exist_ok=True)
 
-    raw_files = load_images(input_path, prepocess.file_extension)
+    raw_files = load_images(input_path, preprocess.file_extension)
 
     preprocessed = []
     for file in raw_files:
         preprocessed.append(
             load_and_preprocess_3D_to_2D.submit(
                 file=file,
-                ext=prepocess.file_extension,
-                projection_operator=prepocess.projection_operator,
+                ext=preprocess.file_extension,
+                projection_operator=preprocess.projection_operator,
                 out_dir=preprocess_output,
             )
         )

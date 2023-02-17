@@ -21,6 +21,7 @@ from prefect.deployments import run_deployment
 def run_deepblink(
     input_path: Path = "/path/to/acquisition/dir",
     output_path: Path = "/path/to/output/dir",
+    run_name: str = "run-1",
     pattern: str = "*.tif",
     detection_channels: List[int] = [0],
     deepblink_models: List[Path] = ["/path/to/model.h5"],
@@ -32,7 +33,8 @@ def run_deepblink(
 
     parameters = {
         "serialized_preprocessed": images_dicts,
-        "out_dir": output_path,
+        "output_path": output_path,
+        "run_name": run_name,
         "detection_channels": detection_channels,
         "deepblink_models": deepblink_models,
     }
