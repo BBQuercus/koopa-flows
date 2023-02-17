@@ -9,7 +9,7 @@ from cpr.utilities.utilities import task_input_hash
 from prefect import flow, task
 from pydantic import BaseModel
 
-from koopaflows.preprocessing.task import preprocess_3D_to_2D
+from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
 
 @task(cache_key_fn=task_input_hash)
 def load_images(input_dir, ext):
@@ -21,13 +21,13 @@ def load_images(input_dir, ext):
     for entry in os.scandir(input_dir):
         if entry.is_file():
             if pattern_re.fullmatch(entry.name):
-                files.append(ImageSource.from_path(entry.path))
+                files.append(entry.path)
 
     return files
 
 
 class Preprocess3Dto2D(BaseModel):
-    file_extension: str = ".nd"
+    file_extension: str = "nd"
     projection_operator: Literal["maximum", "mean", "sharpest"] = "maximum"
 
 
@@ -49,13 +49,13 @@ def preprocess_flow(
                              f"preprocess_3D-2D_{prepocess.projection_operator}")
     os.makedirs(preprocess_output, exist_ok=True)
 
-    raw_images = load_images(input_path, ext=prepocess.file_extension)
+    raw_files = load_images(input_path)
 
     preprocessed = []
-    for img in raw_images:
+    for file in raw_files:
         preprocessed.append(
-            preprocess_3D_to_2D.submit(
-                img=img,
+            load_and_preprocess_3D_to_2D.submit(
+                file=file,
                 projection_operator=prepocess.projection_operator,
                 out_dir=preprocess_output,
             )
