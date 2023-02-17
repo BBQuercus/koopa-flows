@@ -11,7 +11,6 @@ class SegmentCellsCellpose(BaseModel):
     channel_nuclei: int
     channel_cito: int
     diameter: int = 150
-    cellpose_models: List[Path] = ["/to/models"]
     resample: bool = True
     remove_touching_border: bool = True
 
@@ -45,3 +44,4 @@ class SegmentOtherThreshold(BaseModel):
 class Colocalize(BaseModel):
     active: bool = True
     channels: List[Tuple[int, int]]
+    distance_cutoff: int = 5

@@ -11,7 +11,7 @@ from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
 from koopa.detect import detect_image
 
-from .cpr_parquet import ParquetTarget
+from src.flow.cpr_parquet import ParquetTarget
 
 
 def exclude_sem_and_model_input_hash(

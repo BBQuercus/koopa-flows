@@ -9,9 +9,6 @@ from cpr.utilities.utilities import task_input_hash
 from prefect import flow, task
 from pydantic import BaseModel
 
-from src.flow.preprocessing.task import preprocess_3D_to_2D
-
-
 @task(cache_key_fn=task_input_hash)
 def load_images(input_dir, ext):
     assert ext in ['.tif', '.stk', '.nd', '.czi'], 'File format not supported.'
