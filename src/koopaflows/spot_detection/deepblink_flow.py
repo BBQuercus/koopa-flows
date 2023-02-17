@@ -48,7 +48,8 @@ def deepblink_spot_detection_task(
     try:
         gpu_sem.acquire()
         df = detect_image(
-            data, detection_channel, model, refinement_radius=3
+            data, detection_channel, model, refinement_radius=3,
+            engine="python",
         )
     except RuntimeError as e:
         raise e
