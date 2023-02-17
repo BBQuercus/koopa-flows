@@ -59,7 +59,7 @@ def deepblink_spot_detection_task(
     df.insert(loc=0, column="FileID", value=image.get_name())
 
     fname_out = os.path.join(
-        out_dir, f"test2d_detection_c{detection_channel}",
+        out_dir, f"detection_c{detection_channel}",
         f"{image.get_name()}.parq"
     )
     output = ParquetTarget.from_path(fname_out)
@@ -80,7 +80,7 @@ def deepblink_spot_detection_flow(
         run_name: str,
         detection_channels: List[int],
         deepblink_models: List[Path],
-) -> Dict[int, List[ParquetTarget]]:
+):
     run_dir = join(output_path, run_name)
 
     preprocess_output = join(run_dir, "deepblink")
@@ -94,25 +94,17 @@ def deepblink_spot_detection_flow(
     for channel, model_path in zip(detection_channels, deepblink_models):
         model = pink.io.load_model(model_path)
         detections = []
-        buffer = []
         for img in preprocessed:
-            task = deepblink_spot_detection_task.submit(
-                image=img,
-                detection_channel=channel,
-                out_dir=preprocess_output,
-                model=model,
-                model_name=model_path,
-                gpu_sem=gpu_sem,
+            detections.append(
+                deepblink_spot_detection_task(
+                    image=img,
+                    detection_channel=channel,
+                    out_dir=preprocess_output,
+                    model=model,
+                    model_name=model_path,
+                    gpu_sem=gpu_sem,
+                )
             )
-            buffer.append(task)
-            while len(buffer) >= 1:
-                # With len(buffer) >= 2 deep_blink_spot_detection_task
-                # crashes "sometimes" in `koopa.detect.detect_image`.
-                # Don't know really why. Might be related to numba.
-                detections.append(buffer.pop(0).wait())
-
-        while len(buffer) > 0:
-            detections.append(buffer.pop(0).wait())
 
         output[channel] = detections
 
