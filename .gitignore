@@ -134,3 +134,5 @@ log_luigi/
 *.csv
 *.pdf
 .DS_Store
+
+src/_version.py

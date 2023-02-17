@@ -9,6 +9,8 @@ from cpr.utilities.utilities import task_input_hash
 from prefect import flow, task
 from pydantic import BaseModel
 
+from koopaflows.preprocessing.task import preprocess_3D_to_2D
+
 @task(cache_key_fn=task_input_hash)
 def load_images(input_dir, ext):
     assert ext in ['.tif', '.stk', '.nd', '.czi'], 'File format not supported.'
@@ -30,7 +32,7 @@ class Preprocess3Dto2D(BaseModel):
 
 
 @flow(
-    name="Preprocess [3D -> 2D]",
+    name="Preprocess 3D to 2D",
     cache_result_in_memory=False,
     persist_result=True,
     result_serializer=cpr_serializer(),
