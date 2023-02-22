@@ -1,12 +1,18 @@
+from glob import glob
 from os import makedirs
 from os.path import join
+from pathlib import Path
 from typing import Literal
 
 import koopa.segment_other_threshold as koct
-from cpr.Serializer import cpr_serializer
+from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
-from prefect import task, flow
+from koopaflows.cpr_parquet import koopa_serializer
+from prefect import task, flow, get_client
+from prefect.client.schemas import FlowRun
+from prefect.deployments import run_deployment
+from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
 
 
@@ -36,16 +42,17 @@ def segment_other_task(
 
 
 @flow(
-    name="Koopa - Segmentation Other [2D]",
+    name="other-seg-threshold-2d",
     cache_result_in_memory=False,
     persist_result=True,
-    result_serializer=cpr_serializer(),
+    result_serializer=koopa_serializer(),
 )
 def other_threshold_segmentation_flow(
-        images: list[ImageTarget],
+        serialized_images: list[dict],
         output_dir: str,
         segment_other: SegmentOther = SegmentOther(),
 ):
+    images = [ImageSource(**d) for d in serialized_images]
     segmentation_result: list[dict[str, ImageTarget]] = []
 
     other_seg_output = join(output_dir,
@@ -64,3 +71,33 @@ def other_threshold_segmentation_flow(
         )
 
     return segmentation_result
+
+@flow(
+    name="Other-Segmentation 2D",
+    cache_result_in_memory=False,
+    persist_result=True,
+    result_serializer=koopa_serializer(),
+    result_storage=LocalFileSystem.load("koopa"),
+)
+def run_other_threshold_segmentation(
+    input_path: Path = "/path/to/input_dir/",
+    output_path: Path = "/path/to/output_dir",
+    run_name: str = "run-1",
+    pattern: str = "*.tif",
+    segment_other: SegmentOther = SegmentOther(),
+):
+    images = [ImageSource.from_path(p) for p in glob(join(input_path, pattern))]
+
+    parameters = {
+        "serialized_images": [img.serialize() for img in images],
+        "output_dir": join(output_path, run_name),
+        "segment_other": segment_other.dict(),
+    }
+
+    run: FlowRun = run_deployment(
+        name="other-seg-threshold-2d/default",
+        parameters=parameters,
+        client=get_client(),
+    )
+
+    return run.state.result()
