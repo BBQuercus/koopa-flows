@@ -9,7 +9,9 @@ from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopaflows.cpr_parquet import koopa_serializer
-from prefect import task, flow
+from prefect import task, flow, get_client
+from prefect.client.schemas import FlowRun
+from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
 import koopa.segment_cells_threshold as ksct
@@ -83,11 +85,12 @@ def segment_cyto_task(
     result_storage=LocalFileSystem.load("koopa"),
 )
 def threshold_segmentation_flow(
-        images: list[ImageTarget],
+        serialized_images: list[dict],
         output_dir: str,
         segment_nuclei: SegmentNuclei = SegmentNuclei(),
         segment_cyto: SegmentCyto = SegmentCyto()
 ):
+    images = [ImageSource(**d) for d in serialized_images]
     segmentation_result: list[dict[str, ImageTarget]] = []
 
     nuc_seg_output = join(output_dir, "segmentation_nuclei")
@@ -136,9 +139,17 @@ def run_cell_seg_threshold_2d(
     images = [ImageSource.from_path(p) for p in glob(join(input_path,
                                                           pattern))]
 
-    return threshold_segmentation_flow(
-        images=images,
-        output_dir=join(output_path, run_name),
-        segment_nuclei=segment_nuclei,
-        segment_cyto=segment_cyto,
+    parameters = {
+        "serialized_images": [img.serialize() for img in images],
+        "output_dir": join(output_path, run_name),
+        "segment_nuclei": segment_nuclei.dict(),
+        "segment_cyto": segment_cyto.dict(),
+    }
+
+    run: FlowRun = run_deployment(
+        name="cell-seg-threshold-2d/default",
+        parameters=parameters,
+        client=get_client(),
     )
+
+    return run.state.result()
