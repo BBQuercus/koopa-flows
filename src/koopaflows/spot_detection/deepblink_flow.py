@@ -61,7 +61,7 @@ def deepblink_spot_detection_task(
     df.insert(loc=0, column="FileID", value=image.get_name())
 
     fname_out = os.path.join(
-        out_dir, f"detection_c{detection_channel}",
+        out_dir, f"detection_raw_c{detection_channel}",
         f"{image.get_name()}.parq"
     )
     output = ParquetTarget.from_path(fname_out)
@@ -85,7 +85,7 @@ def deepblink_spot_detection_flow(
 ):
     run_dir = join(output_path, run_name)
 
-    preprocess_output = join(run_dir, "spots")
+    preprocess_output = run_dir
     os.makedirs(preprocess_output, exist_ok=True)
 
     preprocessed = [ImageSource(**d) for d in serialized_preprocessed]
