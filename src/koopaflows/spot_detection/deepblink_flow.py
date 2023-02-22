@@ -73,6 +73,7 @@ def deepblink_spot_detection_task(
     persist_result=True,
     result_serializer=koopa_serializer(),
     validate_parameters=False,
+    log_prints=True,
 )
 def deepblink_spot_detection_flow(
         serialized_preprocessed: List[dict],
