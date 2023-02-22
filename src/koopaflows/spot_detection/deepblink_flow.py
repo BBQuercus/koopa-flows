@@ -31,6 +31,7 @@ def exclude_sem_and_model_input_hash(
     cache_result_in_memory=False,
     persist_result=True,
     cache_key_fn=exclude_sem_and_model_input_hash,
+    refresh_cache=True,
 )
 def deepblink_spot_detection_task(
         image: ImageSource,
@@ -95,9 +96,10 @@ def deepblink_spot_detection_flow(
     for channel, model_path in zip(detection_channels, deepblink_models):
         model = pink.io.load_model(model_path)
         detections = []
+        buffer = []
         for img in preprocessed:
-            detections.append(
-                deepblink_spot_detection_task(
+            buffer.append(
+                deepblink_spot_detection_task.submit(
                     image=img,
                     detection_channel=channel,
                     out_dir=preprocess_output,
@@ -106,6 +108,12 @@ def deepblink_spot_detection_flow(
                     gpu_sem=gpu_sem,
                 )
             )
+
+            while len(buffer) >= 4:
+                detections.append(buffer.pop(0).result())
+
+        while len(buffer) > 0:
+            detections.append(buffer.pop(0).result())
 
         output[channel] = detections
 
