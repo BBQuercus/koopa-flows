@@ -10,6 +10,7 @@ from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopaflows.cpr_parquet import koopa_serializer
 from prefect import task, flow
+from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
 import koopa.segment_cells_threshold as ksct
 
@@ -79,6 +80,7 @@ def segment_cyto_task(
     cache_result_in_memory=False,
     persist_result=True,
     result_serializer=koopa_serializer(),
+    result_storage=LocalFileSystem.load("koopa"),
 )
 def threshold_segmentation_flow(
         images: list[ImageTarget],
@@ -121,6 +123,7 @@ def threshold_segmentation_flow(
     cache_result_in_memory=False,
     persist_result=True,
     result_serializer=koopa_serializer(),
+    result_storage=LocalFileSystem.load("koopa"),
 )
 def run_cell_seg_threshold_2d(
     input_path: Path = "/path/to/input_dir/",

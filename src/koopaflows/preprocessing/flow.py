@@ -7,6 +7,7 @@ from cpr.Serializer import cpr_serializer
 from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
 from prefect import flow, task
+from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
 
 from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
@@ -36,6 +37,7 @@ class Preprocess3Dto2D(BaseModel):
     cache_result_in_memory=False,
     persist_result=True,
     result_serializer=cpr_serializer(),
+    result_storage=LocalFileSystem.load("koopa"),
 )
 def preprocess_flow(
         input_path: str = "/tungstenfs/scratch/gchao/grieesth/Export_DRB/20221216_HeLa11ht-pIM40nuc-JunD-2_HS-42C-30or1h_DRB-4h_washout-30min-1h-2h_smFISH-IF_HSPH1_SC35/",

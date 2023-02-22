@@ -12,6 +12,7 @@ from cpr.utilities.utilities import task_input_hash
 from koopa.detect import detect_image
 
 from koopaflows.cpr_parquet import ParquetTarget, koopa_serializer
+from prefect.filesystems import LocalFileSystem
 
 
 def exclude_sem_and_model_input_hash(
@@ -73,8 +74,7 @@ def deepblink_spot_detection_task(
     cache_result_in_memory=False,
     persist_result=True,
     result_serializer=koopa_serializer(),
-    validate_parameters=False,
-    log_prints=True,
+    result_storage=LocalFileSystem.load("deepblink"),
 )
 def deepblink_spot_detection_flow(
         serialized_preprocessed: List[dict],
