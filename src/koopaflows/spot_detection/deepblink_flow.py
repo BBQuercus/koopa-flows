@@ -85,7 +85,7 @@ def deepblink_spot_detection_flow(
 ):
     run_dir = join(output_path, run_name)
 
-    preprocess_output = join(run_dir, "deepblink")
+    preprocess_output = join(run_dir, "spots")
     os.makedirs(preprocess_output, exist_ok=True)
 
     preprocessed = [ImageSource(**d) for d in serialized_preprocessed]

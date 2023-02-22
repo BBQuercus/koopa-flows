@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import List
 
 import prefect
-from cpr.Serializer import cpr_serializer
 from cpr.image.ImageSource import ImageSource
 from koopaflows.cpr_parquet import koopa_serializer
 from prefect import get_client
@@ -17,7 +16,6 @@ from prefect.deployments import run_deployment
     cache_result_in_memory=False,
     persist_result=True,
     result_serializer=koopa_serializer(),
-    validate_parameters=False,
 )
 def run_deepblink(
     input_path: Path = "/path/to/acquisition/dir",
