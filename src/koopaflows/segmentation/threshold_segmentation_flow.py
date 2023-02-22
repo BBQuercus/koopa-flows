@@ -1,11 +1,14 @@
+from glob import glob
 from os import makedirs
 from os.path import join
+from pathlib import Path
 from typing import Literal
 
 import skimage
-from cpr.Serializer import cpr_serializer
+from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
+from koopaflows.cpr_parquet import koopa_serializer
 from prefect import task, flow
 from pydantic import BaseModel
 import koopa.segment_cells_threshold as ksct
@@ -72,10 +75,10 @@ def segment_cyto_task(
     return result
 
 @flow(
-    name="Koopa - Segmentation [2D]",
+    name="cell-seg-threshold-2d",
     cache_result_in_memory=False,
     persist_result=True,
-    result_serializer=cpr_serializer(),
+    result_serializer=koopa_serializer(),
 )
 def threshold_segmentation_flow(
         images: list[ImageTarget],
@@ -113,3 +116,26 @@ def threshold_segmentation_flow(
 
     return segmentation_result
 
+@flow(
+    name="Cell-Segmentation 2D",
+    cache_result_in_memory=False,
+    persist_result=True,
+    result_serializer=koopa_serializer(),
+)
+def run_cell_seg_threshold_2d(
+    input_path: Path = "/path/to/input_dir/",
+    output_path: Path = "/path/to/output_dir",
+    run_name: str = "run-1",
+    pattern: str = "*.tif",
+    segment_nuclei: SegmentNuclei = SegmentNuclei(),
+    segment_cyto: SegmentCyto = SegmentCyto(),
+):
+    images = [ImageSource.from_path(p) for p in glob(join(input_path,
+                                                          pattern))]
+
+    return threshold_segmentation_flow(
+        images=images,
+        output_dir=join(output_path, run_name),
+        segment_nuclei=segment_nuclei,
+        segment_cyto=segment_cyto,
+    )
