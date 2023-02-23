@@ -4,13 +4,12 @@ from os.path import join
 from typing import Literal
 
 from cpr.Serializer import cpr_serializer
-from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
+from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
 from prefect import flow, task
 from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
 
-from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
 
 @task(cache_key_fn=task_input_hash)
 def load_images(input_dir, ext):

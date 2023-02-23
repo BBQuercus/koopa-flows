@@ -10,7 +10,6 @@ import tensorflow as tf
 from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
 from koopa.detect import detect_image
-
 from koopaflows.cpr_parquet import ParquetTarget, koopa_serializer
 from prefect.filesystems import LocalFileSystem
 

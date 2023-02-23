@@ -4,6 +4,7 @@ from os.path import join
 from pathlib import Path
 from typing import Literal
 
+import koopa.segment_cells_threshold as ksct
 import skimage
 from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
@@ -14,7 +15,7 @@ from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
-import koopa.segment_cells_threshold as ksct
+
 
 class SegmentNuclei(BaseModel):
     channel: int = 2

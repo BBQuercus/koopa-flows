@@ -3,9 +3,9 @@ from pathlib import Path
 
 import koopa
 from prefect import task
-
+from scratchpad.fixed_cell_flow_complicated import \
+    ignore_suffix_task_input_hash
 from src.flow.cpr_parquet import ParquetSource, ParquetTarget
-from scratchpad.fixed_cell_flow_complicated import ignore_suffix_task_input_hash
 from src.flow.flow_parameters import Colocalize
 
 

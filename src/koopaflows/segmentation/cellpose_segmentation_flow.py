@@ -2,13 +2,14 @@ from os import makedirs
 from os.path import join
 from typing import Literal
 
+import koopa.segment_cells_threshold as ksct
 import skimage
 from cpr.Serializer import cpr_serializer
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from prefect import task, flow
 from pydantic import BaseModel
-import koopa.segment_cells_threshold as ksct
+
 
 class SegmentNuclei(BaseModel):
     channel: int = 0

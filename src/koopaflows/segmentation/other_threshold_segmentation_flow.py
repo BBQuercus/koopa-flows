@@ -10,7 +10,7 @@ from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopaflows.cpr_parquet import koopa_serializer
-from prefect import task, flow, get_client, get_run_logger
+from prefect import task, flow, get_client
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem

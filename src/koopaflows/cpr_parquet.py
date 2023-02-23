@@ -1,12 +1,12 @@
 import os
 
 import cpr
-from cpr.Resource import Resource
-from cpr.Serializer import cpr_serializer
-from cpr.Target import Target
 import koopa.io
 import pandas as pd
 import xxhash
+from cpr.Resource import Resource
+from cpr.Serializer import cpr_serializer
+from cpr.Target import Target
 from prefect.serializers import JSONSerializer
 from prefect.utilities.importtools import from_qualified_name
 
