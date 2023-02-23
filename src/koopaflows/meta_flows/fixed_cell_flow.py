@@ -186,6 +186,8 @@ def fixed_cell_flow(
             )
         )
 
+    preprocessed = [p.result() for p in preprocessed]
+
     # Deepblink runs in GPU TensorFlow env
     spots = run_deepblink.submit(
         image_dicts=[p.serialize() for p in preprocessed],
