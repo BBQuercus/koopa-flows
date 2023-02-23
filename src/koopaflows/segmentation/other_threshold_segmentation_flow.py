@@ -9,7 +9,7 @@ from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopaflows.cpr_parquet import koopa_serializer
-from prefect import task, flow, get_client
+from prefect import task, flow, get_client, get_run_logger
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
@@ -30,12 +30,17 @@ def segment_other_task(
     result = ImageTarget.from_path(
         join(output_dir, img.get_name() + ".tif")
     )
-    result.set_data(
-        koct.segment(
+    get_run_logger().info("Start thresholding.")
+    mask = koct.segment(
             image=img.get_data()[segment_other.channel],
             method=segment_other.method,
         )
+    get_run_logger().info("Done thresholding.")
+
+    result.set_data(
+        mask
     )
+    get_run_logger().info("Return result.")
     return result
 
 
@@ -67,7 +72,7 @@ def other_threshold_segmentation_flow(
             )
         )
 
-        while len(buffer) >= 6:
+        while len(buffer) >= 1:
             segmentation_result.append(
                 {
                     f"other_c{segment_other.channel}": buffer.pop(0).result()
