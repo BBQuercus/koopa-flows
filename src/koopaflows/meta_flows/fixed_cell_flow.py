@@ -52,53 +52,6 @@ def run_deepblink(
 
     return run.state.result()
 
-@task(
-    cache_key_fn=task_input_hash,
-)
-def run_cell_segmentation(
-        serialized_images: list[dict],
-        output_dir: str,
-        segment_nuclei: SegmentNuclei,
-        segment_cyto: SegmentCyto,
-):
-    parameters = {
-        "serialized_images": serialized_images,
-        "output_dir": output_dir,
-        "segment_nuclei": segment_nuclei.dict(),
-        "segment_cyto": segment_cyto.dict(),
-    }
-
-    run: FlowRun = run_deployment(
-        name="cell-seg-threshold-2d/default",
-        parameters=parameters,
-        client=get_client(),
-    )
-
-    return run.state.result()
-
-
-@task(
-    cache_key_fn=task_input_hash,
-)
-def run_other_segmentation(
-        serialized_images: list[dict],
-        output_dir: str,
-        segment_other: SegmentOther,
-):
-    parameters = {
-        "serialized_images": serialized_images,
-        "output_dir": output_dir,
-        "segment_other": segment_other.dict(),
-    }
-
-    run: FlowRun = run_deployment(
-        name="other-seg-threshold-2d/default",
-        parameters=parameters,
-        client=get_client(),
-    )
-
-    return run.state.result()
-
 
 @task(cache_key_fn=task_input_hash)
 def merge(
