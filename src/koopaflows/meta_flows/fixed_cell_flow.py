@@ -57,7 +57,7 @@ def run_deepblink(
 def merge(
     all_spots: List[dict[int, ParquetSource]],
     segmentations: List[dict[str, ImageSource]],
-    other_segmentations: List[ImageSource],
+    other_segmentations: List[dict[int, ImageSource]],
     output_path: str,
 ) -> tuple[CSVTarget, CSVTarget]:
 
@@ -66,12 +66,16 @@ def merge(
                                                       segmentations, other_segmentations):
         dfs = []
         for spots_per_channel in all_spots_per_image.values():
-            for spots in spots_per_channel:
-                dfs.append(spots.get_data())
+            dfs.append(spots_per_channel.get_data())
 
         df = pd.concat(dfs)
 
-        segs = {**nuc_cyto_seg, **other_seg}
+        segs = {}
+        for k, v in nuc_cyto_seg.items():
+            segs[k] = v.get_data()
+
+        for k, v in other_seg.items():
+            segs[k] = v.get_data()
 
         df, cell_df = get_segmentation_data(
             df,
@@ -103,24 +107,11 @@ def cell_segmentation(
     segment_nuclei: SegmentNuclei,
     segment_cyto: SegmentCyto
 ):
-    segmentation_result: list[dict[str, ImageTarget]] = []
-
     nuc_seg_output = join(output_dir, "segmentation_nuclei")
     os.makedirs(nuc_seg_output, exist_ok=True)
 
     cyto_seg_output = join(output_dir, "segmentation_cyto")
     os.makedirs(cyto_seg_output, exist_ok=True)
-
-    def insert_result_fn(results: list[PrefectFuture]):
-        if len(list) == 2:
-            return {
-                "nuclei": results[0].result(),
-                "cyto": results[1].result()
-            }
-        else:
-            return {
-                "nuclei": results[0].result()
-            }
 
     nuc_results = []
     buffer = []
@@ -177,9 +168,12 @@ def cell_segmentation(
                     "cyto": cyto,
                 }
             )
-        return results
+        results.sort()
     else:
-        return [ {"nuclei": nuc} for nuc in nuc_results ]
+        results = [ {"nuclei": nuc} for nuc in nuc_results ]
+        results.sort()
+
+    return results
 
 
 def other_segmentation(
@@ -281,6 +275,7 @@ def fixed_cell_flow(
         output_dir=join(output_path, run_name),
         preprocess=preprocess
     )
+    preprocessed.sort()
 
     # Deepblink runs in GPU TensorFlow env
     spots = run_deepblink.submit(
