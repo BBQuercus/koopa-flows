@@ -168,10 +168,8 @@ def cell_segmentation(
                     "cyto": cyto,
                 }
             )
-        results.sort()
     else:
         results = [ {"nuclei": nuc} for nuc in nuc_results ]
-        results.sort()
 
     return results
 
@@ -200,14 +198,16 @@ def other_segmentation(
             results=other_segmentations,
             buffer=buffer,
             max_buffer_length=6,
-            result_insert_fn=lambda r: {f"other_c{segment_other.channel}": r}
+            result_insert_fn=lambda r: {f"other_c{segment_other.channel}":
+                                            r.result()}
         )
 
     wait_for_task_runs(
         results=other_segmentations,
         buffer=buffer,
         max_buffer_length=0,
-        result_insert_fn=lambda r: {f"other_c{segment_other.channel}": r}
+        result_insert_fn=lambda r: {f"other_c{segment_other.channel}":
+                                        r.result()}
     )
 
     return other_segmentations
@@ -275,7 +275,6 @@ def fixed_cell_flow(
         output_dir=join(output_path, run_name),
         preprocess=preprocess
     )
-    preprocessed.sort()
 
     # Deepblink runs in GPU TensorFlow env
     spots = run_deepblink.submit(
