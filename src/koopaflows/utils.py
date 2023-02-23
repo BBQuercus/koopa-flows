@@ -7,7 +7,7 @@ def wait_for_task_runs(
     results: list,
     buffer: list[PrefectFuture],
     max_buffer_length: int = 6,
-    result_insert_fn: Callable = lambda r: r,
+    result_insert_fn: Callable = lambda r: r.result(),
 ):
     while len(buffer) >= max(1, max_buffer_length):
         i = 0
