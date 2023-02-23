@@ -95,7 +95,7 @@ def deepblink_spot_detection_flow(
 
     gpu_sem = threading.Semaphore(1)
 
-    output = {}
+    output_channels = []
     for channel, model_path in zip(detection_channels, deepblink_models):
         model = pink.io.load_model(model_path)
         detections = []
@@ -118,6 +118,13 @@ def deepblink_spot_detection_flow(
         while len(buffer) > 0:
             detections.append(buffer.pop(0).result())
 
-        output[channel] = detections
+        output_channels.append(detections)
+
+    output = []
+    for i in range(len(output_channels[0])):
+        img_results = {}
+        for j, ch in enumerate(detection_channels):
+            img_results[ch] = output_channels[j][i]
+        output.append(img_results)
 
     return output

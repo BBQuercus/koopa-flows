@@ -55,7 +55,7 @@ def run_deepblink(
 
 @task(cache_key_fn=task_input_hash)
 def merge(
-    all_spots: List[List[ParquetSource]],
+    all_spots: List[dict[int, ParquetSource]],
     segmentations: List[dict[str, ImageSource]],
     other_segmentations: List[ImageSource],
     output_path: str,
@@ -65,8 +65,9 @@ def merge(
     for all_spots_per_image, nuc_cyto_seg, other_seg in zip(all_spots,
                                                       segmentations, other_segmentations):
         dfs = []
-        for spots_per_channel in all_spots_per_image:
-            dfs.append(spots_per_channel.get_data())
+        for spots_per_channel in all_spots_per_image.values():
+            for spots in spots_per_channel:
+                dfs.append(spots.get_data())
 
         df = pd.concat(dfs)
 
