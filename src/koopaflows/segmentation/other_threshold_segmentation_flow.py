@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 import koopa.segment_other_threshold as koct
+import numpy as np
 from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
@@ -30,17 +31,16 @@ def segment_other_task(
     result = ImageTarget.from_path(
         join(output_dir, img.get_name() + ".tif")
     )
-    get_run_logger().info("Start thresholding.")
+
     mask = koct.segment(
-            image=img.get_data()[segment_other.channel],
+            image=img.get_data()[segment_other.channel][np.newaxis],
             method=segment_other.method,
         )
-    get_run_logger().info("Done thresholding.")
 
     result.set_data(
         mask
     )
-    get_run_logger().info("Return result.")
+
     return result
 
 
@@ -72,7 +72,7 @@ def other_threshold_segmentation_flow(
             )
         )
 
-        while len(buffer) >= 1:
+        while len(buffer) >= 6:
             segmentation_result.append(
                 {
                     f"other_c{segment_other.channel}": buffer.pop(0).result()
