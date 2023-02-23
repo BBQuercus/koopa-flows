@@ -121,42 +121,64 @@ def cell_segmentation(
                 "nuclei": results[0].result()
             }
 
+    nuc_results = []
     buffer = []
     for img in images:
-        tasks = []
-        nuc_seg_task = segment_nuclei_task.submit(
-            img=img,
-            output_dir=nuc_seg_output,
-            segment_nuclei=segment_nuclei
-        )
-        tasks.append(nuc_seg_task)
-
-        if segment_cyto.active:
-            cyto_seg_task = segment_cyto_task.submit(
+        buffer.append(
+            segment_nuclei_task.submit(
                 img=img,
-                nuc_seg=nuc_seg_task,
-                output_dir=cyto_seg_output,
-                segment_cyto=segment_cyto
+                output_dir=nuc_seg_output,
+                segment_nuclei=segment_nuclei
             )
-            tasks.append(cyto_seg_task)
-
-        buffer.append(tasks)
-
+        )
         wait_for_task_runs(
-            results=segmentation_result,
+            results=nuc_results,
             buffer=buffer,
-            max_buffer_length=60,
-            result_insert_fn=insert_result_fn
+            max_buffer_length=48,
         )
 
     wait_for_task_runs(
-        results=segmentation_result,
+        results=nuc_results,
         buffer=buffer,
-        max_buffer_length=0,
-        result_insert_fn=insert_result_fn
+        max_buffer_length=0
     )
 
-    return segmentation_result
+    if segment_cyto.active:
+        buffer = []
+        cyto_results = []
+        for img, nuc in zip(images, nuc_results):
+            buffer.append(
+                segment_cyto_task.submit(
+                    img=img,
+                    nuc_seg=nuc,
+                    output_dir=cyto_seg_output,
+                    segment_cyto=segment_cyto
+                )
+            )
+
+            wait_for_task_runs(
+                results=cyto_results,
+                buffer=buffer,
+                max_buffer_length=48,
+            )
+
+        wait_for_task_runs(
+            results=cyto_results,
+            buffer=buffer,
+            max_buffer_length=0,
+        )
+
+        results = []
+        for nuc, cyto in zip(nuc_results, cyto_results):
+            results.append(
+                {
+                    "nuclei": nuc,
+                    "cyto": cyto,
+                }
+            )
+        return results
+    else:
+        return [ {"nuclei": nuc} for nuc in nuc_results ]
 
 
 def other_segmentation(
