@@ -10,7 +10,7 @@ from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
 from koopa.postprocess import get_segmentation_data
 from koopaflows.cpr_parquet import ParquetSource, koopa_serializer
-from koopaflows.preprocessing.flow import Preprocess3Dto2D
+from koopaflows.preprocessing.flow import Preprocess3Dto2D, load_images
 from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
 from koopaflows.segmentation.other_threshold_segmentation_flow import \
     SegmentOther
@@ -95,13 +95,6 @@ def run_other_segmentation(
     )
 
     return run.state.result()
-
-
-@task(cache_key_fn=task_input_hash)
-def load_images(input_path, ext):
-    assert ext in ['tif', 'stk', 'nd', 'czi'], 'File format not supported.'
-    files = glob(os.path.join(input_path, "*." + ext))
-    return [ImageSource.from_path(f) for f in files]
 
 
 @task(cache_key_fn=task_input_hash)
