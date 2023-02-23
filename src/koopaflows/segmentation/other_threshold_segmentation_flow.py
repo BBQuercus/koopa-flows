@@ -57,9 +57,9 @@ def other_threshold_segmentation_flow(
                             f"segmentation_c{segment_other.channel}")
     makedirs(other_seg_output, exist_ok=True)
 
-    futures = []
+    buffer = []
     for img in images:
-        futures.append(
+        buffer.append(
             segment_other_task.submit(
                 img=img,
                 output_dir=other_seg_output,
@@ -67,10 +67,17 @@ def other_threshold_segmentation_flow(
             )
         )
 
-    for f in futures:
+        while len(buffer) >= 24:
+            segmentation_result.append(
+                {
+                    f"other_c{segment_other.channel}": buffer.pop(0).result()
+                }
+            )
+
+    while len(buffer) > 0:
         segmentation_result.append(
             {
-                f"other_c{segment_other.channel}": f.result()
+                f"other_c{segment_other.channel}": buffer.pop(0).result()
             }
         )
 
