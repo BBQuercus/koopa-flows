@@ -21,12 +21,11 @@ class SegmentOther(BaseModel):
     method: Literal["otsu", "li", "multiotsu"] = "multiotsu"
     channel: int = 0
 
-
 @task(cache_key_fn=task_input_hash)
 def segment_other_task(
         img: ImageTarget,
         output_dir: str,
-        segment_other: SegmentOther
+        segment_other
 ):
     result = ImageTarget.from_path(
         join(output_dir, img.get_name() + ".tif")
@@ -59,14 +58,20 @@ def other_threshold_segmentation_flow(
                             f"segmentation_c{segment_other.channel}")
     makedirs(other_seg_output, exist_ok=True)
 
+    futures = []
     for img in images:
+        futures.append(
+            segment_other_task.submit(
+                img=img,
+                output_dir=other_seg_output,
+                segment_other=segment_other,
+            )
+        )
+
+    for f in futures:
         segmentation_result.append(
             {
-                f"other_c{segment_other.channel}": segment_other.submit(
-                    img=img,
-                    output_dir=other_seg_output,
-                    segment_other=segment_other,
-                )
+                f"other_c{segment_other.channel}": f.result()
             }
         )
 
