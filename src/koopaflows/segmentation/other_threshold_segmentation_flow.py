@@ -73,11 +73,19 @@ def other_threshold_segmentation_flow(
         )
 
         while len(buffer) >= 6:
-            segmentation_result.append(
-                {
-                    f"other_c{segment_other.channel}": buffer.pop(0).result()
-                }
-            )
+            i = 0
+            while i < len(buffer):
+                result = buffer[i].wait(1)
+                if result is not None:
+                    segmentation_result.append(
+                        {
+                            f"other_c{segment_other.channel}": result
+                        }
+                    )
+                    buffer.pop(i)
+                    i = len(buffer)
+                else:
+                    i += 1
 
     while len(buffer) > 0:
         segmentation_result.append(
