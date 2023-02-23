@@ -67,7 +67,7 @@ def other_threshold_segmentation_flow(
             )
         )
 
-        while len(buffer) >= 12:
+        while len(buffer) >= 6:
             segmentation_result.append(
                 {
                     f"other_c{segment_other.channel}": buffer.pop(0).result()
