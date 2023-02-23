@@ -32,8 +32,7 @@ def segment_other_task(
     )
     result.set_data(
         koct.segment(
-            image=img.get_data(),
-            channel=segment_other.channel,
+            image=img.get_data()[segment_other.channel],
             method=segment_other.method,
         )
     )
