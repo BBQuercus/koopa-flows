@@ -1,48 +1,98 @@
 import os
 from glob import glob
+from os.path import join
 from pathlib import Path
 from typing import Union, Literal, List
 
 import pandas as pd
-from cpr.Serializer import cpr_serializer
 from cpr.csv.CSVTarget import CSVTarget
 from cpr.image.ImageSource import ImageSource
 from cpr.utilities.utilities import task_input_hash
 from koopa.postprocess import get_segmentation_data
+from koopaflows.preprocessing.flow import Preprocess3Dto2D
 from prefect import flow, get_client
 from prefect import task
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 
-from .cpr_parquet import ParquetSource
-from .merge.merge_tasks import merge
-from .preprocessing.preprocess import preprocess_3D_to_2D
-from .segmentation.other_threshold_segmentation_flow import \
+from koopaflows.cpr_parquet import ParquetSource, koopa_serializer
+from koopaflows.merge.merge_tasks import merge
+from koopaflows.segmentation.other_threshold_segmentation_flow import \
     other_threshold_segmentation_flow, SegmentOther
-from .segmentation.threshold_segmentation_flow import SegmentNuclei, \
+from koopaflows.segmentation.threshold_segmentation_flow import SegmentNuclei, \
     SegmentCyto, threshold_segmentation_flow
+
+from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
+from prefect.filesystems import LocalFileSystem
 
 
 @task(
-    cache_result_in_memory=False,
-    persist_result=True,
     cache_key_fn=task_input_hash,
 )
 def run_deepblink(
         image_dicts: list[dict],
         output_path: str,
+        run_name: str,
         detection_channels: list[int],
         deepblink_models: list[Path]
 ):
     parameters = {
         "serialized_preprocessed": image_dicts,
-        "out_dir": output_path,
+        "output_path": output_path,
+        "run_name": run_name,
         "detection_channels": detection_channels,
         "deepblink_models": deepblink_models,
     }
 
     run: FlowRun = run_deployment(
         name="deepblink/default",
+        parameters=parameters,
+        client=get_client(),
+    )
+
+    return run.state.result()
+
+@task(
+    cache_key_fn=task_input_hash,
+)
+def run_cell_segmentation(
+        serialized_images: list[dict],
+        output_dir: str,
+        segment_nuclei: SegmentNuclei,
+        segment_cyto: SegmentCyto,
+):
+    parameters = {
+        "serialized_images": serialized_images,
+        "output_dir": output_dir,
+        "segment_nuclei": segment_nuclei.dict(),
+        "segment_cyto": segment_cyto.dict(),
+    }
+
+    run: FlowRun = run_deployment(
+        name="cell-seg-threshold-2d/default",
+        parameters=parameters,
+        client=get_client(),
+    )
+
+    return run.state.result()
+
+
+@task(
+    cache_key_fn=task_input_hash,
+)
+def run_other_segmentation(
+        serialized_images: list[dict],
+        output_dir: str,
+        segment_other: SegmentOther,
+):
+    parameters = {
+        "serialized_images": serialized_images,
+        "output_dir": output_dir,
+        "segment_other": segment_other.dict(),
+    }
+
+    run: FlowRun = run_deployment(
+        name="other-seg-threshold-2d/default",
         parameters=parameters,
         client=get_client(),
     )
@@ -104,14 +154,14 @@ def merge(
     name="Fixed Cell Analysis",
     cache_result_in_memory=False,
     persist_result=True,
-    result_serializer=cpr_serializer(),
+    result_serializer=koopa_serializer(),
+    result_storage=LocalFileSystem.load("koopa"),
 )
 def fixed_cell_flow(
         input_path: Union[Path, str] = "/tungstenfs/scratch/gchao/grieesth/Export_DRB/20221216_HeLa11ht-pIM40nuc-JunD-2_HS-42C-30or1h_DRB-4h_washout-30min-1h-2h_smFISH-IF_HSPH1_SC35/",
         output_path: Union[Path, str] = "/path/to/output/dir",
-        file_ext: str = ".nd",
-        projection_operator: Literal[
-            "maximum", "mean", "sharpest"] = "maximum",
+        run_name: str = "run-1",
+        preprocess: Preprocess3Dto2D = Preprocess3Dto2D(),
         deepblink_models: List[Union[Path, str]] = [
             "/tungstenfs/scratch/gchao/deepblink/model_fish.h5"],
         detection_channels: List[int] = [1],
@@ -119,34 +169,46 @@ def fixed_cell_flow(
         segment_cyto: SegmentCyto = SegmentCyto(),
         segment_other: SegmentOther = SegmentOther(),
 ):
-    # TODO: double-check output path
-    raw_images = load_images(input_path, ext=file_ext)
+    run_dir = join(output_path, run_name)
+
+    preprocess_output = join(run_dir,
+                             f"preprocess_3D-2D_"
+                             f"{preprocess.projection_operator}")
+    os.makedirs(preprocess_output, exist_ok=True)
+
+    raw_files = load_images(input_path, preprocess.file_extension)
 
     preprocessed = []
-    for img in raw_images:
-        preprocessed.append(preprocess_3D_to_2D(img, projection_operator,
-                                                os.path.join(output_path,
-                                                             "preprocessed")))
+    for file in raw_files:
+        preprocessed.append(
+            load_and_preprocess_3D_to_2D.submit(
+                file=file,
+                ext=preprocess.file_extension,
+                projection_operator=preprocess.projection_operator,
+                out_dir=preprocess_output,
+            )
+        )
 
     # Deepblink runs in GPU TensorFlow env
     spots = run_deepblink.submit(
         image_dicts=[p.serialize() for p in preprocessed],
-        output_path=os.path.join(output_path, "spots"),
+        output_path=output_path,
+        run_name=run_name,
         detection_channels=detection_channels,
         deepblink_models=deepblink_models,
     )
 
-    segmentations = threshold_segmentation_flow(
-        images=preprocessed,
-        output_dir=output_path,
+    cell_segmentations = run_cell_segmentation.submit(
+        serialized_images=[p.serialize() for p in preprocessed],
+        output_dir=os.path.join(output_path, run_dir),
         segment_nuclei=segment_nuclei,
         segment_cyto=segment_cyto,
     )
 
-    other_segmentations = other_threshold_segmentation_flow(
-        images=preprocessed,
-        output_dir=output_path,
+    other_segmentations = run_other_segmentation.submit(
+        serialized_images=[p.serialize() for p in preprocessed],
+        output_dir=join(output_path, run_name),
         segment_other=segment_other,
     )
 
-    merge(spots, segmentations, other_segmentations)
+    merge(spots, cell_segmentations, other_segmentations)
