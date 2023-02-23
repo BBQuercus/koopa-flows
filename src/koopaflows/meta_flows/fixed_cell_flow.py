@@ -305,7 +305,7 @@ def fixed_cell_flow(
 
     merge(
         all_spots=spots.result(),
-        segmentations=cell_segmentations.result(),
+        segmentations=cell_segmentations,
         other_segmentations=other_segmentations,
         output_path=join(output_path, run_name)
     )
