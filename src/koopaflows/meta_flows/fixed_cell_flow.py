@@ -100,7 +100,7 @@ def run_other_segmentation(
 @task(cache_key_fn=task_input_hash)
 def load_images(input_path, ext):
     assert ext in ['.tif', '.stk', '.nd', '.czi'], 'File format not supported.'
-    files = glob(os.paht.join(input_path, "*" + ext))
+    files = glob(os.path.join(input_path, "*" + ext))
     return [ImageSource.from_path(f) for f in files]
 
 
