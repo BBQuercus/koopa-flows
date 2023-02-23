@@ -7,20 +7,23 @@ from typing import Union, List
 import pandas as pd
 from cpr.csv.CSVTarget import CSVTarget
 from cpr.image.ImageSource import ImageSource
+from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopa.postprocess import get_segmentation_data
 from koopaflows.cpr_parquet import ParquetSource, koopa_serializer
 from koopaflows.preprocessing.flow import Preprocess3Dto2D, load_images
 from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
 from koopaflows.segmentation.other_threshold_segmentation_flow import \
-    SegmentOther
+    SegmentOther, segment_other_task
 from koopaflows.segmentation.threshold_segmentation_flow import SegmentNuclei, \
-    SegmentCyto
+    SegmentCyto, segment_nuclei_task, segment_cyto_task
+from koopaflows.utils import wait_for_task_runs
 from prefect import flow, get_client
 from prefect import task
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
+from prefect.futures import PrefectFuture
 
 
 @task(
@@ -140,6 +143,142 @@ def merge(
     return result, result_cells
 
 
+def cell_segmentation(
+    images: list[ImageTarget],
+    output_dir: str,
+    segment_nuclei: SegmentNuclei,
+    segment_cyto: SegmentCyto
+):
+    segmentation_result: list[dict[str, ImageTarget]] = []
+
+    nuc_seg_output = join(output_dir, "segmentation_nuclei")
+    os.makedirs(nuc_seg_output, exist_ok=True)
+
+    cyto_seg_output = join(output_dir, "segmentation_cyto")
+    os.makedirs(cyto_seg_output, exist_ok=True)
+
+    def insert_result_fn(results: list[PrefectFuture]):
+        if len(list) == 2:
+            return {
+                "nuclei": results[0].result(),
+                "cyto": results[1].result()
+            }
+        else:
+            return {
+                "nuclei": results[0].result()
+            }
+
+    buffer = []
+    for img in images:
+        tasks = []
+        nuc_seg_task = segment_nuclei_task.submit(
+            img=img,
+            output_dir=nuc_seg_output,
+            segment_nuclei=segment_nuclei
+        )
+        tasks.append(nuc_seg_task)
+
+        if segment_cyto.active:
+            cyto_seg_task = segment_cyto_task.submit(
+                img=img,
+                nuc_seg=nuc_seg_task,
+                output_dir=cyto_seg_output,
+                segment_cyto=segment_cyto
+            )
+            tasks.append(cyto_seg_task)
+
+        buffer.append(tasks)
+
+        wait_for_task_runs(
+            results=segmentation_result,
+            buffer=buffer,
+            max_buffer_length=60,
+            result_insert_fn=insert_result_fn
+        )
+
+    wait_for_task_runs(
+        results=segmentation_result,
+        buffer=buffer,
+        max_buffer_length=0,
+        result_insert_fn=insert_result_fn
+    )
+
+    return segmentation_result
+
+
+def other_segmentation(
+    preprocessed: list[ImageTarget],
+    output_dir: str,
+    segment_other: SegmentOther
+):
+    other_seg_output = join(output_dir,
+                            f"segmentation_c{segment_other.channel}")
+    os.makedirs(other_seg_output, exist_ok=True)
+
+    other_segmentations: list[dict[str, ImageTarget]] = []
+    buffer = []
+    for img in preprocessed:
+        buffer.append(
+            segment_other_task.submit(
+                img=img,
+                output_dir=other_seg_output,
+                segment_other=segment_other,
+            )
+        )
+
+        wait_for_task_runs(
+            results=other_segmentations,
+            buffer=buffer,
+            max_buffer_length=6,
+            result_insert_fn=lambda r: {f"other_c{segment_other.channel}": r}
+        )
+
+    wait_for_task_runs(
+        results=other_segmentations,
+        buffer=buffer,
+        max_buffer_length=0,
+        result_insert_fn=lambda r: {f"other_c{segment_other.channel}": r}
+    )
+
+    return other_segmentations
+
+
+def preprocessing(
+    raw_files: list[ImageSource],
+    output_dir: str,
+    preprocess: Preprocess3Dto2D,
+):
+    preprocess_output = join(output_dir,
+                             "preprocessd")
+    os.makedirs(preprocess_output, exist_ok=True)
+
+    preprocessed = []
+    buffer = []
+    for file in raw_files:
+        buffer.append(
+            load_and_preprocess_3D_to_2D.submit(
+                file=file,
+                ext=preprocess.file_extension,
+                projection_operator=preprocess.projection_operator,
+                out_dir=preprocess_output,
+            )
+        )
+
+        wait_for_task_runs(
+            results=preprocessed,
+            buffer=buffer,
+            max_buffer_length=20,
+        )
+
+    wait_for_task_runs(
+        results=preprocessed,
+        buffer=buffer,
+        max_buffer_length=0
+    )
+
+    return preprocessed
+
+
 @flow(
     name="Fixed Cell Analysis",
     cache_result_in_memory=False,
@@ -159,27 +298,13 @@ def fixed_cell_flow(
         segment_cyto: SegmentCyto = SegmentCyto(),
         segment_other: SegmentOther = SegmentOther(),
 ):
-    run_dir = join(output_path, run_name)
-
-    preprocess_output = join(run_dir,
-                             f"preprocess_3D-2D_"
-                             f"{preprocess.projection_operator}")
-    os.makedirs(preprocess_output, exist_ok=True)
-
     raw_files = load_images(input_path, preprocess.file_extension)
 
-    preprocessed = []
-    for file in raw_files:
-        preprocessed.append(
-            load_and_preprocess_3D_to_2D.submit(
-                file=file,
-                ext=preprocess.file_extension,
-                projection_operator=preprocess.projection_operator,
-                out_dir=preprocess_output,
-            )
-        )
-
-    preprocessed = [p.result() for p in preprocessed]
+    preprocessed = preprocessing(
+        raw_files=raw_files,
+        output_dir=join(output_path, run_name),
+        preprocess=preprocess
+    )
 
     # Deepblink runs in GPU TensorFlow env
     spots = run_deepblink.submit(
@@ -190,22 +315,22 @@ def fixed_cell_flow(
         deepblink_models=deepblink_models,
     )
 
-    cell_segmentations = run_cell_segmentation.submit(
-        serialized_images=[p.serialize() for p in preprocessed],
-        output_dir=os.path.join(output_path, run_dir),
-        segment_nuclei=segment_nuclei,
-        segment_cyto=segment_cyto,
+    cell_segmentations = cell_segmentation(
+        preprocessed,
+        os.path.join(output_path, run_name),
+        segment_nuclei,
+        segment_cyto,
     )
 
-    other_segmentations = run_other_segmentation.submit(
-        serialized_images=[p.serialize() for p in preprocessed],
-        output_dir=join(output_path, run_name),
-        segment_other=segment_other,
+    other_segmentations = other_segmentation(
+        preprocessed,
+        os.path.join(output_path, run_name),
+        segment_other
     )
 
     merge(
         all_spots=spots.result(),
         segmentations=cell_segmentations.result(),
-        other_segmentations=other_segmentations.result(),
-        output_path=join(output_path, run_dir)
+        other_segmentations=other_segmentations,
+        output_path=join(output_path, run_name)
     )

@@ -10,6 +10,7 @@ from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopaflows.cpr_parquet import koopa_serializer
+from koopaflows.utils import wait_for_task_runs
 from prefect import task, flow, get_client
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
@@ -76,27 +77,19 @@ def other_threshold_segmentation_flow(
             )
         )
 
-        while len(buffer) >= 6:
-            i = 0
-            while i < len(buffer):
-                result = buffer[i].wait(1)
-                if result is not None:
-                    segmentation_result.append(
-                        {
-                            f"other_c{segment_other.channel}": result
-                        }
-                    )
-                    buffer.pop(i)
-                    i = len(buffer)
-                else:
-                    i += 1
-
-    while len(buffer) > 0:
-        segmentation_result.append(
-            {
-                f"other_c{segment_other.channel}": buffer.pop(0).result()
-            }
+        wait_for_task_runs(
+            results=segmentation_result,
+            buffer=buffer,
+            max_buffer_length=6,
+            result_insert_fn=lambda r: {f"other_c{segment_other.channel}": r}
         )
+
+    wait_for_task_runs(
+        results=segmentation_result,
+        buffer=buffer,
+        max_buffer_length=0,
+        result_insert_fn=lambda r: {f"other_c{segment_other.channel}": r}
+    )
 
     return segmentation_result
 

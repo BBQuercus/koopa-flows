@@ -10,10 +10,12 @@ from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopaflows.cpr_parquet import koopa_serializer
+from koopaflows.utils import wait_for_task_runs
 from prefect import task, flow, get_client
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
+from prefect.futures import PrefectFuture
 from pydantic import BaseModel
 
 
@@ -104,14 +106,27 @@ def threshold_segmentation_flow(
     cyto_seg_output = join(output_dir, "segmentation_cyto")
     makedirs(cyto_seg_output, exist_ok=True)
 
+    def insert_result_fn(results: list[PrefectFuture]):
+        if len(list) == 2:
+            return {
+                "nuclei": results[0].result(),
+                "cyto": results[1].result()
+            }
+        else:
+            return {
+                "nuclei": results[0].result()
+            }
+
+
+    buffer = []
     for img in images:
-        result = {}
+        tasks = []
         nuc_seg_task = segment_nuclei_task.submit(
             img=img,
             output_dir=nuc_seg_output,
             segment_nuclei=segment_nuclei
         )
-        result["nuclei"] = nuc_seg_task
+        tasks.append(nuc_seg_task)
 
         if segment_cyto.active:
             cyto_seg_task = segment_cyto_task.submit(
@@ -120,9 +135,23 @@ def threshold_segmentation_flow(
                 output_dir=cyto_seg_output,
                 segment_cyto=segment_cyto
             )
-            result["cyto"] = cyto_seg_task
+            tasks.append(cyto_seg_task)
 
-        segmentation_result.append(result)
+        buffer.append(tasks)
+
+        wait_for_task_runs(
+            results=segmentation_result,
+            buffer=buffer,
+            max_buffer_length=60,
+            result_insert_fn=insert_result_fn
+        )
+
+    wait_for_task_runs(
+        results=segmentation_result,
+        buffer=buffer,
+        max_buffer_length=0,
+        result_insert_fn=insert_result_fn
+    )
 
     return segmentation_result
 
