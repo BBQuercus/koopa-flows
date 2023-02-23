@@ -55,7 +55,11 @@ def other_threshold_segmentation_flow(
         output_dir: str,
         segment_other: SegmentOther = SegmentOther(),
 ):
-    images = [ImageSource(**d) for d in serialized_images]
+    if 'data_hash' in serialized_images[0].keys():
+        images = [ImageTarget(**d) for d in serialized_images]
+    else:
+        images = [ImageSource(**d) for d in serialized_images]
+
     segmentation_result: list[dict[str, ImageTarget]] = []
 
     other_seg_output = join(output_dir,

@@ -8,6 +8,7 @@ import deepblink as pink
 import prefect
 import tensorflow as tf
 from cpr.image.ImageSource import ImageSource
+from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopa.detect import detect_image
 from koopaflows.cpr_parquet import ParquetTarget, koopa_serializer
@@ -87,7 +88,10 @@ def deepblink_spot_detection_flow(
     preprocess_output = run_dir
     os.makedirs(preprocess_output, exist_ok=True)
 
-    preprocessed = [ImageSource(**d) for d in serialized_preprocessed]
+    if 'data_hash' in serialized_preprocessed[0].keys():
+        preprocessed = [ImageTarget(**d) for d in serialized_preprocessed]
+    else:
+        preprocessed = [ImageSource(**d) for d in serialized_preprocessed]
 
     gpu_sem = threading.Semaphore(1)
 

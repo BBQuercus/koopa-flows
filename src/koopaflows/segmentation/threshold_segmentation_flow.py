@@ -91,7 +91,11 @@ def threshold_segmentation_flow(
         segment_nuclei: SegmentNuclei = SegmentNuclei(),
         segment_cyto: SegmentCyto = SegmentCyto()
 ):
-    images = [ImageSource(**d) for d in serialized_images]
+    if 'data_hash' in serialized_images[0].keys():
+        images = [ImageTarget(**d) for d in serialized_images]
+    else:
+        images = [ImageSource(**d) for d in serialized_images]
+
     segmentation_result: list[dict[str, ImageTarget]] = []
 
     nuc_seg_output = join(output_dir, "segmentation_nuclei")
