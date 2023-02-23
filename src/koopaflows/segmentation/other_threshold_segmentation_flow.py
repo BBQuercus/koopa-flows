@@ -38,7 +38,7 @@ def segment_other_task(
         )
 
     result.set_data(
-        mask
+        mask.astype(np.uint8)
     )
 
     return result
