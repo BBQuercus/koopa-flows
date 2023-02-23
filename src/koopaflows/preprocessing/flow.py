@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 @task(cache_key_fn=task_input_hash)
 def load_images(input_dir, ext):
-    assert ext in ['tif', 'stk', 'nd', 'czi'], 'File format not supported.'
+    assert ext in ['.tif', '.stk', '.nd', '.czi'], 'File format not supported.'
 
     pattern_re = re.compile(f".*{ext}")
 
@@ -27,7 +27,7 @@ def load_images(input_dir, ext):
 
 
 class Preprocess3Dto2D(BaseModel):
-    file_extension: Literal["tif", "stk", "nd", "czi"] = "nd"
+    file_extension: Literal[".tif", ".stk", ".nd", ".czi"] = ".nd"
     projection_operator: Literal["maximum", "mean", "sharpest"] = "maximum"
 
 
