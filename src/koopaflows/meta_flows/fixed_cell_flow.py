@@ -21,7 +21,7 @@ from koopaflows.segmentation.other_threshold_segmentation_flow import \
 from koopaflows.segmentation.threshold_segmentation_flow import SegmentNuclei, \
     SegmentCyto, segment_nuclei_task, segment_cyto_task
 from koopaflows.utils import wait_for_task_runs
-from prefect import flow, get_client
+from prefect import flow, get_client, get_run_logger
 from prefect import task
 from prefect.client.schemas import FlowRun
 from prefect.context import get_run_context, FlowRunContext
@@ -288,6 +288,7 @@ def write_info_md(
         "segment_cyto": segment_cyto.dict(),
         "segment_other": segment_other.dict(),
     }
+    get_run_logger(params)
     gchao_koopa_flows_v = pkg_resources.get_distribution("koopa-flows").version
     gchao_koopa_v = pkg_resources.get_distribution("koopa").version
     prefect_v = pkg_resources.get_distribution("prefect").version
