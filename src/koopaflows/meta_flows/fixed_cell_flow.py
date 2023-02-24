@@ -1,13 +1,17 @@
+import json
 import os
+from datetime import datetime
 from os.path import join
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Any, Optional
 
 import pandas as pd
+import pkg_resources
 from cpr.csv.CSVTarget import CSVTarget
 from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
+from faim_prefect.prefect import get_prefect_context
 from koopa.postprocess import merge_segmaps
 from koopaflows.cpr_parquet import ParquetSource, koopa_serializer
 from koopaflows.preprocessing.flow import Preprocess3Dto2D, load_images
@@ -20,6 +24,7 @@ from koopaflows.utils import wait_for_task_runs
 from prefect import flow, get_client
 from prefect import task
 from prefect.client.schemas import FlowRun
+from prefect.context import get_run_context, FlowRunContext
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
 
@@ -247,6 +252,93 @@ def preprocessing(
     return preprocessed
 
 
+
+def exlude_context_task_input_hash(
+    context: "TaskRunContext", arguments: dict[str, Any]
+) -> Optional[str]:
+    hash_args = {}
+    for k, item in arguments.items():
+        if k not in ["context"]:
+            hash_args[k] = item
+
+    return task_input_hash(context, hash_args)
+
+@task(cache_key_fn=exlude_context_task_input_hash)
+def write_info_md(
+    input_path: Path,
+    output_path: Path,
+    run_name: str,
+    preprocess: Preprocess3Dto2D,
+    deepblink_models: list[str],
+    detection_channels: list[int],
+    segment_nuclei: SegmentNuclei,
+    segment_cyto: SegmentCyto,
+    segment_other: SegmentOther,
+    context: dict,
+):
+    date = datetime.now().strftime("%Y/%m/%d, %H:%M:%S")
+    params = {
+        "input_path": str(input_path),
+        "output_path": str(output_path),
+        "run_name": str(run_name),
+        "preprocess": preprocess.dict(),
+        "deepblink_models": [str(m) for m in deepblink_models],
+        "detection_channels": detection_channels,
+        "segment_nuclei": segment_nuclei.dict(),
+        "segment_cyto": segment_cyto.dict(),
+        "segment_other": segment_other.dict(),
+    }
+    gchao_koopa_flows_v = pkg_resources.get_distribution("koopa-flows").version
+    gchao_koopa_v = pkg_resources.get_distribution("koopa").version
+    prefect_v = pkg_resources.get_distribution("prefect").version
+    content = "# Fixed Cell Analysis\n" \
+              "Source: [https://github.com/fmi-basel/gchao-koopa-flows](" \
+              "https://github.com/fmi-basel/gchao-koopa-flows)\n" \
+              f"Date: {date}\n" \
+              "\n" \
+              "## Parameters\n" \
+              f"{json.dumps(params, indent=4)}\n" \
+              "\n" \
+              "## Packages\n" \
+              f"* gchao-koopa-flows: {gchao_koopa_flows_v}\n" \
+              f"* gchao-koopa: {gchao_koopa_v}\n" \
+              f"* prefect: {prefect_v}\n" \
+              "\n" \
+              "## Prefect Context\n" \
+              f"{json.dumps(context, indent=4)}\n"
+
+    with open(join(output_path, run_name, "README.md"), "w") as f:
+        f.write(content)
+
+
+
+@task(cache_key_fn=task_input_hash)
+def write_koopa_cfg(
+    path: str,
+    segment_other: SegmentOther,
+    detection_channels: list[int],
+):
+    det_channels = [str(c) for c in detection_channels]
+    content = "[General]\n" \
+              "do_timeseries = False\n" \
+              "do_3d = False\n" \
+              "\n" \
+              "[SegmentationOther]\n" \
+              f"sego_enabled = {str(segment_other.active)}\n" \
+              f"sego_channels = [{segment_other.channel}]\n" \
+              "\n" \
+              "[SpotsDetection]\n" \
+              f"detect_channels = [{','.join(det_channels)}]\n" \
+              "refinement_radius = 3\n" \
+              "\n" \
+              "[SpotsColocalization]\n" \
+              "coloc_enables = False\n" \
+              "coloc_channels = [()]\n"
+
+    with open(join(path, "koopa.cfg"), "w") as f:
+        f.write(content)
+
+
 @flow(
     name="Fixed Cell Analysis",
     cache_result_in_memory=False,
@@ -301,4 +393,23 @@ def fixed_cell_flow(
         segmentations=cell_segmentations,
         other_segmentations=other_segmentations,
         output_path=join(output_path, run_name)
+    )
+
+    write_koopa_cfg(
+        path=join(output_path, run_name),
+        segment_other=segment_other,
+        detection_channels=detection_channels,
+    )
+
+    write_info_md(
+        input_path=input_path,
+        output_path=output_path,
+        run_name=run_name,
+        preprocess=preprocess,
+        deepblink_models=deepblink_models,
+        detection_channels=detection_channels,
+        segment_nuclei=segment_nuclei,
+        segment_cyto=segment_cyto,
+        segment_other=segment_other,
+        context=get_prefect_context(get_run_context()),
     )
