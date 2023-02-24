@@ -288,7 +288,6 @@ def write_info_md(
         "segment_cyto": segment_cyto.dict(),
         "segment_other": segment_other.dict(),
     }
-    get_run_logger(params)
     gchao_koopa_flows_v = pkg_resources.get_distribution("koopa-flows").version
     gchao_koopa_v = pkg_resources.get_distribution("koopa").version
     prefect_v = pkg_resources.get_distribution("prefect").version
@@ -306,7 +305,7 @@ def write_info_md(
               f"* prefect: {prefect_v}\n" \
               "\n" \
               "## Prefect Context\n" \
-              f"{json.dumps(context, indent=4)}\n"
+              f"{str(context)}\n"
 
     with open(join(output_path, run_name, "README.md"), "w") as f:
         f.write(content)
