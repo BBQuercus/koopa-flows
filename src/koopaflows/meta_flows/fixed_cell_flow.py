@@ -1,5 +1,4 @@
 import os
-from glob import glob
 from os.path import join
 from pathlib import Path
 from typing import Union, List
@@ -9,7 +8,7 @@ from cpr.csv.CSVTarget import CSVTarget
 from cpr.image.ImageSource import ImageSource
 from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
-from koopa.postprocess import get_segmentation_data
+from koopa.postprocess import merge_segmaps
 from koopaflows.cpr_parquet import ParquetSource, koopa_serializer
 from koopaflows.preprocessing.flow import Preprocess3Dto2D, load_images
 from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
@@ -23,7 +22,6 @@ from prefect import task
 from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
-from prefect.futures import PrefectFuture
 
 
 @task(
@@ -62,7 +60,7 @@ def merge(
 ) -> tuple[CSVTarget, CSVTarget]:
 
     result_dfs, result_cell_dfs = [], []
-    for all_spots_per_image, nuc_cyto_seg, other_seg in zip(all_spots,
+    for all_spots_per_image, cell_seg, other_seg in zip(all_spots,
                                                       segmentations, other_segmentations):
         dfs = []
         for spots_per_channel in all_spots_per_image.values():
@@ -71,20 +69,20 @@ def merge(
         df = pd.concat(dfs)
 
         segs = {}
-        for k, v in nuc_cyto_seg.items():
+        fname = None
+        for k, v in cell_seg.items():
+            if fname is None:
+                fname = v.get_name()
             segs[k] = v.get_data()
 
         for k, v in other_seg.items():
             segs[k] = v.get_data()
 
-        df, cell_df = get_segmentation_data(
+        df, cell_df = merge_segmaps(
             df,
             segs,
-            {
-                "do_3d": False,
-                "brains_enabled": False,
-                "selection": "both",
-            }
+            fname=fname,
+            do_3d=False,
         )
         result_dfs.append(df)
         result_cell_dfs.append(cell_df)
