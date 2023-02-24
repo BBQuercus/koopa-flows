@@ -183,7 +183,7 @@ def other_segmentation(
     segment_other: SegmentOther
 ):
     other_seg_output = join(output_dir,
-                            f"segmentation_c{segment_other.channel}")
+                            f"segmentation_{segment_other.channel}")
     os.makedirs(other_seg_output, exist_ok=True)
 
     other_segmentations: list[dict[str, ImageTarget]] = []
@@ -222,7 +222,7 @@ def preprocessing(
     preprocess: Preprocess3Dto2D,
 ):
     preprocess_output = join(output_dir,
-                             "preprocessd")
+                             "preprocessed")
     os.makedirs(preprocess_output, exist_ok=True)
 
     preprocessed = []
@@ -332,7 +332,7 @@ def write_koopa_cfg(
               "refinement_radius = 3\n" \
               "\n" \
               "[SpotsColocalization]\n" \
-              "coloc_enables = False\n" \
+              "coloc_enabled = False\n" \
               "coloc_channels = [()]\n"
 
     with open(join(path, "koopa.cfg"), "w") as f:
