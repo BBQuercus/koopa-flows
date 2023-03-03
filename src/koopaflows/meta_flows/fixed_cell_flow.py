@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from datetime import datetime
 from os.path import join
 from pathlib import Path
@@ -14,7 +15,7 @@ from cpr.utilities.utilities import task_input_hash
 from faim_prefect.prefect import get_prefect_context
 from koopa.postprocess import merge_segmaps
 from koopaflows.cpr_parquet import ParquetSource, koopa_serializer
-from koopaflows.preprocessing.flow import Preprocess3Dto2D, load_images
+from koopaflows.preprocessing.flow import Preprocess3Dto2D
 from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
 from koopaflows.segmentation.other_threshold_segmentation_flow import \
     SegmentOther, segment_other_task
@@ -27,6 +28,21 @@ from prefect.client.schemas import FlowRun
 from prefect.context import get_run_context, FlowRunContext
 from prefect.deployments import run_deployment
 from prefect.filesystems import LocalFileSystem
+
+
+@task(cache_key_fn=task_input_hash, refresh_cache=True)
+def load_images(input_dir, ext):
+    assert ext in ['tif', 'stk', 'nd', 'czi'], 'File format not supported.'
+
+    pattern_re = re.compile(f".*.{ext}")
+
+    files = []
+    for entry in os.scandir(input_dir):
+        if entry.is_file():
+            if pattern_re.fullmatch(entry.name):
+                files.append(entry.path)
+
+    return files
 
 
 @task(

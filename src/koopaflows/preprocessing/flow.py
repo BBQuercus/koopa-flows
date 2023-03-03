@@ -11,7 +11,7 @@ from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
 
 
-@task(cache_key_fn=task_input_hash)
+@task(cache_key_fn=task_input_hash, refresh_cache=True)
 def load_images(input_dir, ext):
     assert ext in ['tif', 'stk', 'nd', 'czi'], 'File format not supported.'
 
