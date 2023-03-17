@@ -12,6 +12,7 @@ from cpr.image.ImageTarget import ImageTarget
 from cpr.utilities.utilities import task_input_hash
 from koopa.detect import detect_image
 from koopaflows.cpr_parquet import ParquetTarget, koopa_serializer
+from prefect import get_run_logger
 from prefect.filesystems import LocalFileSystem
 
 
@@ -35,7 +36,7 @@ def exclude_sem_and_model_input_hash(
     refresh_cache=True,
 )
 def deepblink_spot_detection_task(
-        image: ImageSource,
+        image: ImageTarget,
         detection_channel: int,
         out_dir: Path,
         model: tf.keras.Model,

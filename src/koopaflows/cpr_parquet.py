@@ -1,4 +1,5 @@
 import os
+from os.path import exists
 
 import cpr
 import koopa.io
@@ -49,7 +50,7 @@ class ParquetTarget(Target):
         return xxhash.xxh3_64(data_hash).hexdigest()
 
     def _write_data(self):
-        if self._data is not None:
+        if self._data is not None and not exists(self.get_path()):
             koopa.io.save_parquet(self.get_path(), self._data)
 
 def target_decoder(result: dict):
