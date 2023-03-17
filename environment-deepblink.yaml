@@ -1,0 +1,17 @@
+name: deepblink
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python==3.9
+  - cudatoolkit=11.2.2
+  - cudnn=8.1.0
+  - pip
+  - pip:
+    - tensorflow==2.11.*
+    - prefect==2.8.6
+    - pyarrow==11.0.0
+    - deepblink==0.1.4
+    - git+https://github.com/fmi-basel/gchao-koopa@main#egg=koopa&subdirectory=koopa
+    - git+https://github.com/fmi-faim/custom-prefect-result@v0.1.6
+    - git+https://github.com/fmi-faim/faim-prefect@v0.2.1
