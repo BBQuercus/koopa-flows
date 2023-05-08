@@ -10,6 +10,6 @@ dependencies:
     - prefect==2.10
     - pyarrow==11.0.0
     - koopa==0.0.13
-    - git+https://github.com/fmi-basel/gchao-koopa-flows@dev-tibuch
+    - git+https://github.com/fmi-basel/gchao-koopa-flows@v0.2.2
     - git+https://github.com/fmi-faim/custom-prefect-result@v0.1.9
     - git+https://github.com/fmi-faim/faim-prefect@v0.2.1
