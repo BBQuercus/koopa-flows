@@ -1,0 +1,20 @@
+name: segmentation-models
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python==3.9
+  - cudatoolkit=11.2.2
+  - cudnn=8.1.0
+  - pip
+  - pip:
+    - tensorflow==2.11
+    - keras-applications>=1.0.7,<=1.0.8
+    - image-classifiers==1.0.0
+    - efficientnet==1.0.0
+    - segmentation-models
+    - prefect==2.10.5
+    - koopa==0.0.13
+    - git+https://github.com/fmi-basel/gchao-koopa-flows@v0.2.1
+    - git+https://github.com/fmi-faim/custom-prefect-result@main
+    - git+https://github.com/fmi-faim/faim-prefect@v0.2.1

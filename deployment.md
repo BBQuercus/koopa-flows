@@ -17,6 +17,11 @@ prefect deployment build src/koopaflows/segmentation/other_threshold_segmentatio
 prefect deployment build src/koopaflows/meta_flows/fixed_cell_flow.py:fixed_cell_flow -n "default" -q slurm -sb github/koopa-flows --skip-upload -o deployment/fixed_cell_flow.yaml -ib process/koopa -t koopa -t fish -t fish-if
 ```
 
+## Segmentation Models
+```shell
+prefect deployment build src/koopaflows/segmentation/other_dl_segmentation_flow.py:other_segmentation_DL_flow -n "default" -q slurm -sb github/koopa-flows --skip-upload -o deployment/other_segmentation_models.yaml -ib process/segmentation-models 
+```
+
 ## 3D fly brain analysis
 ```shell
 prefect deployment build src/koopaflows/meta_flows/brain_cell_flow_3d.py:fly_brain_cell_analysis_3D -n "default" -q slurm -sb github/koopa-flows --skip-upload -o deployment/fly_brain_cell_analysis_3D.yaml -ib process/koopa -t koopa -t 3D -t fish -t fish-if
