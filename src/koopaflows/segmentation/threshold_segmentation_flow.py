@@ -41,7 +41,8 @@ def segment_nuclei_task(
         segment_nuclei: SegmentNuclei
 ):
     result = ImageTarget.from_path(
-        join(output_dir, img.get_name() + ".tif")
+        join(output_dir, img.get_name() + ".tif"),
+        imagej=False,
     )
     result.set_data(
         ksct.segment_nuclei(
@@ -61,7 +62,8 @@ def segment_cyto_task(
         segment_cyto: SegmentCyto,
 ):
     result = ImageTarget.from_path(
-        join(output_dir, img.get_name() + ".tif")
+        join(output_dir, img.get_name() + ".tif"),
+        imagej=False,
     )
     image_cyto = img.get_data()[segment_cyto.channel]
     segmap_cyto = ksct.segment_background(

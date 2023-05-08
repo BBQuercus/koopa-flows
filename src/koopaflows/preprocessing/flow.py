@@ -6,12 +6,14 @@ from typing import Literal
 from cpr.Serializer import cpr_serializer
 from cpr.utilities.utilities import task_input_hash
 from koopaflows.preprocessing.task import load_and_preprocess_3D_to_2D
+from koopaflows.storage_key import RESULT_STORAGE_KEY
 from prefect import flow, task
 from prefect.filesystems import LocalFileSystem
 from pydantic import BaseModel
 
 
-@task(cache_key_fn=task_input_hash, refresh_cache=True)
+@task(cache_key_fn=task_input_hash, refresh_cache=True,
+      result_storage_key=RESULT_STORAGE_KEY)
 def load_images(input_dir, ext):
     assert ext in ['tif', 'stk', 'nd', 'czi'], 'File format not supported.'
 
