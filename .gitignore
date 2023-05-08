@@ -136,3 +136,10 @@ log_luigi/
 .DS_Store
 
 src/_version.py
+
+# Prefect
+.prefectignore
+deployment/*.yaml
+
+# idea
+.idea
