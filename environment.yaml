@@ -6,6 +6,7 @@ dependencies:
   - python==3.9
   - pip
   - pip:
+    - cellpose
     - psutil
     - prefect==2.10
     - pyarrow==11.0.0
