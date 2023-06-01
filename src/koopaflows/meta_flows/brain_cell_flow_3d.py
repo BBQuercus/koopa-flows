@@ -52,6 +52,7 @@ class SpotDetection(BaseModel):
 
 
 class Colocalization(BaseModel):
+    active: bool = True
     coloc_channels: list[list[int]]
     z_distance = 2
     distance_cutoff = 5
@@ -344,6 +345,7 @@ def merge(segmentations, all_colocs, output_path):
         for i, coloc in enumerate(ac):
             colocs_per_file[i].append(coloc)
 
+    get_run_logger().debug(colocs_per_file)
     dfs, dfs_cell = [], []
     get_run_logger().debug(f"{len(colocs_per_file)} number of files.")
     for colocs, nuc_segs in zip(colocs_per_file, segmentations):
@@ -359,7 +361,8 @@ def merge(segmentations, all_colocs, output_path):
             dfs.append(df)
             dfs_cell.append(df_cell)
             get_run_logger().debug(f"Merged files for {colocs[0].get_name()}")
-        except ValueError:
+        except ValueError as e:
+            get_run_logger().debug(e)
             get_run_logger().info(f"No spots found for "
                                   f"{colocs[0].get_name()}.")
 
@@ -524,35 +527,42 @@ def fly_brain_cell_analysis_3D(
         max_buffer_length=0
     )
 
-    all_colocs = []
-    for c_source, c_target in coloc_conf.coloc_channels:
-        colocs = []
-        buffer = []
-        for spots_per_channels in final_spots:
-            buffer.append(
-                colocalize.submit(
-                    all_spots=spots_per_channels,
-                    output_path=os.path.join(output_path, run_name,
-                                             f"colocalization_{c_source}-"
-                                             f"{c_target}"),
-                    coloc_channels=[c_source, c_target],
-                    z_distance=coloc_conf.z_distance,
-                    distance_cutoff=coloc_conf.distance_cutoff
+    if coloc_conf.active:
+        all_colocs = []
+        for c_source, c_target in coloc_conf.coloc_channels:
+            colocs = []
+            buffer = []
+            for spots_per_channels in final_spots:
+                buffer.append(
+                    colocalize.submit(
+                        all_spots=spots_per_channels,
+                        output_path=os.path.join(output_path, run_name,
+                                                 f"colocalization_{c_source}-"
+                                                 f"{c_target}"),
+                        coloc_channels=[c_source, c_target],
+                        z_distance=coloc_conf.z_distance,
+                        distance_cutoff=coloc_conf.distance_cutoff
+                    )
                 )
-            )
+
+                wait_for_task_runs(
+                    results=colocs,
+                    buffer=buffer,
+                    max_buffer_length=12,
+                )
 
             wait_for_task_runs(
                 results=colocs,
                 buffer=buffer,
-                max_buffer_length=12,
+                max_buffer_length=0,
             )
-
-        wait_for_task_runs(
-            results=colocs,
-            buffer=buffer,
-            max_buffer_length=0,
-        )
-        all_colocs.append(colocs)
+            all_colocs.append(colocs)
+    else:
+        spots_per_channel = final_spots[0]
+        all_colocs = [[spots] for spots in spots_per_channel.values()]
+        for spots_per_channel in final_spots[1:]:
+            for i, spots in enumerate(spots_per_channel.values()):
+                all_colocs[i].append(spots)
 
     merge(
         segmentations=nuclei_segmentations,
