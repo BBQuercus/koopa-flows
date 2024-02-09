@@ -434,6 +434,7 @@ def write_info_md(
 def write_koopa_cfg(
     path: str,
     detection_channels: list[int],
+    coloc_active: bool,
     coloc_channels: list[list[int]],
 ):
     det_channels = [str(c) for c in detection_channels]
@@ -450,7 +451,7 @@ def write_koopa_cfg(
               "refinement_radius = 3\n" \
               "\n" \
               "[SpotsColocalization]\n" \
-              "coloc_enabled = True\n" \
+              f"coloc_enabled = {coloc_active}\n" \
               f"coloc_channels = {coloc_channels}\n"
 
     with open(join(path, "koopa.cfg"), "w") as f:
@@ -573,6 +574,7 @@ def fly_brain_cell_analysis_3D(
     write_koopa_cfg(
         path=join(output_path, run_name),
         detection_channels=spot_detection.detection_channels,
+        coloc_active=coloc_conf.active,
         coloc_channels=coloc_conf.coloc_channels,
     )
 
